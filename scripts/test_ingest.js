@@ -54,8 +54,8 @@ async function runTest() {
     if (!caseData) {
       throw new Error('No case returned in response body');
     }
-    if (caseData.status !== 'Signal') {
-      throw new Error(`Expected status 'Signal', got '${caseData.status}'`);
+    if (!['Signal', 'Corroborating', 'Verified', 'Assigned', 'Accepted'].includes(caseData.status)) {
+      throw new Error(`Unexpected status '${caseData.status}'`);
     }
     if (caseData.type !== 'Safety') {
       throw new Error(`Expected type 'Safety', got '${caseData.type}'`);

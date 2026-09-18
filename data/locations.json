@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Agege market",
+    "aliases": ["agege", "agege market", "agege bus stop"],
+    "lat": 6.6212,
+    "lng": 3.3262,
+    "city": "Lagos",
+    "state": "Lagos"
+  },
+  {
+    "name": "Mile 12 market",
+    "aliases": ["mile 12", "mile 12 market", "mile12"],
+    "lat": 6.6094,
+    "lng": 3.3881,
+    "city": "Lagos",
+    "state": "Lagos"
+  },
+  {
+    "name": "Ijegun",
+    "aliases": ["ijegun", "ijegun primary school", "ijegun lagos"],
+    "lat": 6.5367,
+    "lng": 3.2573,
+    "city": "Lagos",
+    "state": "Lagos"
+  }
+]
