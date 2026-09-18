@@ -329,21 +329,21 @@ async function runVerification() {
     console.log(`[7] Testing GET /webhook Meta verification handshake...`);
     process.env.WEBHOOK_VERIFY_TOKEN = 'test_verify_token_123';
     const challengeStr = 'CHALLENGE_STRING_789';
-    const res7 = await getHttp(
+    const resWaHandshake = await getHttp(
       port,
       `/webhook?hub.mode=subscribe&hub.verify_token=test_verify_token_123&hub.challenge=${challengeStr}`
     );
 
-    const test7Passed = Boolean(
-      res7.statusCode === 200 &&
-      res7.body === challengeStr
+    const testWaHandshakePassed = Boolean(
+      resWaHandshake.statusCode === 200 &&
+      resWaHandshake.body === challengeStr
     );
 
     results.push({
       scenario: 'WhatsApp Webhook Verification Handshake (GET /webhook)',
       expected: `Status 200 with challenge body '${challengeStr}'`,
-      actual: `Status ${res7.statusCode}, body: '${res7.body}'`,
-      passed: test7Passed
+      actual: `Status ${resWaHandshake.statusCode}, body: '${resWaHandshake.body}'`,
+      passed: testWaHandshakePassed
     });
 
     // Scenario 8: WhatsApp Webhook POST Incoming Message Payload
@@ -369,21 +369,21 @@ async function runVerification() {
       }]
     };
 
-    const res8 = await postJson(port, '/webhook', waPayload);
+    const resWaMessage = await postJson(port, '/webhook', waPayload);
     // Allow async processing to complete
     await new Promise(r => setTimeout(r, 500));
     const casesAfterWa = getAllCases();
 
-    const test8Passed = Boolean(
-      res8.statusCode === 200 &&
+    const testWaMessagePassed = Boolean(
+      resWaMessage.statusCode === 200 &&
       casesAfterWa.length >= countBeforeWa
     );
 
     results.push({
       scenario: 'WhatsApp Webhook Message Ingest (POST /webhook)',
       expected: 'Status 200 EVENT_RECEIVED & case processed in background',
-      actual: `Status ${res8.statusCode}, total cases in DB: ${casesAfterWa.length}`,
-      passed: test8Passed
+      actual: `Status ${resWaMessage.statusCode}, total cases in DB: ${casesAfterWa.length}`,
+      passed: testWaMessagePassed
     });
 
     // Output Pass/Fail Summary Table
