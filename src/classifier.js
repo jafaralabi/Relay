@@ -34,6 +34,9 @@ Analyze incoming messages (written in English, Nigerian Pidgin, or local dialect
    - Stability: disputes/tensions that could escalate
    - Transparency: service failures/accountability gaps
 3. "severity": Must be one of ["High", "Medium", "Low"].
+   - High: credible risk of serious harm or violence to people (weapons, injuries, panic, armed groups)
+   - Medium: conflict or disruption that could escalate but with no weapons or injuries reported (a stall dispute, a crowd gathering, a broken public service)
+   - Low: minor, routine, or informational
 4. "urgency": Must be one of ["High", "Medium", "Low"].
    - High: imminent danger, act in minutes/hours
    - Medium: act within days (e.g., a two-week-old broken borehole is Medium urgency, not High)
