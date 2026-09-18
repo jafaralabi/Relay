@@ -78,6 +78,14 @@ distribution, and full production-grade access control on sensitive case data. B
 convincingly in days rather than months would have meant cutting corners on the parts that
 actually prove the thesis — so we didn't.
 
+## Designed for real conditions, not a demo environment
+
+- **Low bandwidth:** WhatsApp and voice-note intake work on basic connectivity, not just fast urban internet
+- **Accessibility:** voice-first reporting means someone doesn't need to read or type to be heard — this is a deliberate literacy and digital-confidence accommodation, not an incidental feature
+- **Multilingual by design:** classification runs through an LLM prompt, not a language-specific model — this demo runs English and Nigerian Pidgin, but the same pipeline extends to French, Arabic, and Portuguese, the languages spoken across the Sahel, DRC, Sudan, and Mozambique, where OSF's own Transformative Peace in Africa initiative operates
+- **Privacy and security:** sensitive case data (GBV, whistleblower identity, minors) is designed around information classes that are never surfaced publicly — see the Trust, Safety & Governance section of the full spec
+- **Local relevance, clear next steps:** every case is assigned to a locally-relevant responsible actor, and the Trust Receipt tells the reporter exactly what happens next
+
 ## Why this, and not just another reporting app
 
 The moat isn't the app — any current LLM can classify "there's a broken water pipe near my
@@ -111,11 +119,20 @@ Open `http://localhost:3000` for the web chat fallback, or message the WhatsApp 
 configured in `.env` once you've added your number as a test recipient in the Meta developer
 console.
 
+## Built with AI coding tools
+
+This project was built primarily using [Claude / Antigravity — name the actual tool used] as
+the coding agent, directed against [`BUILD_BRIEF.md`](./BUILD_BRIEF.md). The capstone idea
+itself was not AI-generated — it came from a multi-pass, human-directed market research process
+(see the full concept doc) — in line with the challenge's own rule that AI tools should support
+the build, not originate the idea.
+
 ## Demo
 
-- **Video:** [link to demo video]
-- **Pitch deck:** [link to pitch deck]
-- **Written summary:** [`SUMMARY.md`](./SUMMARY.md)
+- **Video (mp4/mov/webm/avi):** [link to demo video]
+- **Pitch deck (PDF):** [link to pitch deck]
+- **Written summary:** [`SUMMARY.md`](./SUMMARY.md) — track, information sources, approach to
+  trust and accuracy, and how AI tools were used
 
 ## Project structure
 
