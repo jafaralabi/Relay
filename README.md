@@ -57,7 +57,7 @@ Closed: Yes
 
 1. A report comes in via WhatsApp (test number) or a web chat fallback — text or voice
 2. Voice is transcribed (Groq-hosted Whisper Large V3 — free tier, OpenAI-compatible)
-3. Groq-hosted Llama 3.3 classifies type, severity, urgency, and which class of actor owns the problem
+3. Groq-hosted GPT-OSS 120B classifies type, severity, urgency, and which class of actor owns the problem
 4. A simplified confidence score combines corroboration, consistency, and evidence
 5. The case is assigned to a demo responsible actor, who accepts an SLA
 6. The case moves through the status schema above, ending in a status-aware map and case feed
@@ -98,7 +98,7 @@ exist.
 
 | Layer | Choice |
 |---|---|
-| Classification / routing | Groq API (Llama 3.3 70B Versatile) |
+| Classification / routing | Groq API (GPT-OSS 120B) |
 | Speech-to-text | Groq API (Whisper Large V3, free tier) |
 | Backend | Node.js / Express (or FastAPI — see code) |
 | Messaging channel | WhatsApp Cloud API (test number) + web chat fallback |
@@ -126,7 +126,7 @@ agent, directed against [`BUILD_BRIEF.md`](./BUILD_BRIEF.md) and its accompanyin
 issues. The capstone idea itself was not AI-generated — it came from a multi-pass, human-directed
 market research process (see the full concept doc) — in line with the challenge's own rule that
 AI tools should support the build, not originate the idea. Note this is distinct from the app's
-own runtime AI (Groq-hosted Llama 3.3 and Whisper), which is what Relay itself calls when
+own runtime AI (Groq-hosted GPT-OSS 120B and Whisper), which is what Relay itself calls when
 classifying a report — one is the tool that built the app, the other is what the app does.
 
 ## Demo

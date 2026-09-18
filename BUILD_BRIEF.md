@@ -60,7 +60,7 @@ Everything else in the full spec (crowdfunding, POS agents, wearables, real secu
 
 | Decision | Choice | Why |
 |---|---|---|
-| LLM | Groq API (Llama 3.3 70B Versatile) | classification, routing, responsibility mapping — same key/provider as speech-to-text, consolidated to one dependency |
+| LLM | Groq API (GPT-OSS 120B) | classification, routing, responsibility mapping — same key/provider as speech-to-text, consolidated to one dependency |
 | Speech-to-text | Groq API (Whisper Large V3) | voice-note transcription — free tier, OpenAI-compatible request format |
 | Backend | Node.js + Express, or Python + FastAPI — pick whichever you're faster in | speed over purity |
 | Chat channel | Meta WhatsApp Cloud API **test number** (no business verification) | fast to stand up, real channel |
@@ -197,7 +197,7 @@ point back to the core model in the full spec doc]
 [Idea origination: human-directed, multi-pass market research — not AI-generated,
 per the challenge rule. Build: [Jules / your coding agent] used for the majority of the
 codebase, working from BUILD_BRIEF.md and the five GitHub issues — be specific about what
-the agent built vs. what was directed/reviewed by hand. Runtime: Groq-hosted Llama 3.3 70B
+the agent built vs. what was directed/reviewed by hand. Runtime: Groq-hosted GPT-OSS 120B
 and Whisper Large V3 power the app's own classification and transcription at runtime —
 distinct from the coding agent that built it.]
 ```

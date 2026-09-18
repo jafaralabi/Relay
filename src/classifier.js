@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 const SYSTEM_PROMPT = `You are an expert civic intelligence and security report classifier for Relay, a peace-tech innovation system.
 Analyze incoming incident reports and output a JSON object with the following fields:
@@ -67,7 +67,7 @@ function fallbackClassify(text) {
 }
 
 /**
- * Classify a text report using Groq API (llama-3.3-70b-versatile, OpenAI-compatible format).
+ * Classify a text report using Groq API (openai/gpt-oss-120b, OpenAI-compatible format).
  * @param {string} text Report text input
  * @returns {Promise<Object>} Classification result
  */
