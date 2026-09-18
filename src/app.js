@@ -15,6 +15,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Mount WhatsApp Cloud API Webhook
+app.use('/webhook', require('./whatsapp'));
+
 // Load locations gazetteer
 let locationsData = [];
 try {
@@ -368,3 +371,4 @@ app.get('/api/cases/:id', (req, res) => {
 });
 
 module.exports = app;
+module.exports.processReportIntake = processReportIntake;
