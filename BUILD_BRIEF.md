@@ -43,7 +43,7 @@ Rule confirmed from the brief: *"Please refrain from using AI to generate your c
 
 A demo web app that:
 1. Accepts an incident report as **text or voice** (via a WhatsApp test-number webhook, or a fallback web chat form)
-2. Transcribes voice → text (Whisper API) if needed
+2. Transcribes voice → text (Groq-hosted Whisper Large V3, OpenAI-compatible API) if needed
 3. Classifies the report: type, severity, urgency, and which actor class owns it
 4. Scores confidence from corroboration/consistency signals (simplified — see §4)
 5. Assigns a named responsible actor and simulates that actor **accepting an SLA** (a scripted demo responder, not a real integration)
@@ -61,7 +61,7 @@ Everything else in the full spec (crowdfunding, POS agents, wearables, real secu
 | Decision | Choice | Why |
 |---|---|---|
 | LLM | Anthropic Claude API | classification, routing, responsibility mapping |
-| Speech-to-text | OpenAI Whisper API | voice-note transcription |
+| Speech-to-text | Groq API (Whisper Large V3) | voice-note transcription — free tier, OpenAI-compatible request format |
 | Backend | Node.js + Express, or Python + FastAPI — pick whichever you're faster in | speed over purity |
 | Chat channel | Meta WhatsApp Cloud API **test number** (no business verification) | fast to stand up, real channel |
 | Fallback channel | Simple web chat form, same backend | if WhatsApp setup stalls, don't lose a day to it |
