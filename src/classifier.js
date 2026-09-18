@@ -1,73 +1,148 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'openai/gpt-oss-120b';
 
-const SYSTEM_PROMPT = `You are an expert civic intelligence and security report classifier for Relay, a peace-tech innovation system.
-Analyze incoming incident reports and output a JSON object with the following fields:
-1. "type": Must be one of ["Safety", "Stability", "Transparency"].
-   - "Safety": Physical violence, armed threat, crime, imminent bodily harm, active danger.
-   - "Stability": Disputes, land/market conflicts, civil unrest, community tension.
-   - "Transparency": Service failures, broken infrastructure, corruption, institutional negligence.
-2. "severity": Must be one of ["High", "Medium", "Low"].
-3. "urgency": Must be one of ["High", "Medium", "Low"].
-4. "responsible_actor": A concise description of the actor class or agency that owns the resolution (e.g., "Community security responder + local police PRO contact", "Trained community mediator", "Local government public works").
-5. "sla": Target timeframe (e.g., "30 minutes", "2 hours", "24 hours", "48 hours").
-6. "confidence_score": Integer between 0 and 100 representing classification confidence based on report clarity and detail.
+// Load actors config for consistent actor/SLA mapping
+let actorsConfig = {};
+try {
+  const actorsPath = path.join(__dirname, '..', 'data', 'actors.json');
+  if (fs.existsSync(actorsPath)) {
+    actorsConfig = JSON.parse(fs.readFileSync(actorsPath, 'utf8'));
+  }
+} catch (err) {
+  console.warn('[Classifier] Could not load actors.json config:', err.message);
+}
 
-Respond ONLY with valid JSON. Do not wrap in backticks or markdown formatting.`;
+function getActorAndSla(type, severity) {
+  if (actorsConfig[type] && actorsConfig[type][severity]) {
+    return actorsConfig[type][severity];
+  }
+  return {
+    responsible_actor: 'Local community desk officer',
+    sla: '24 hours'
+  };
+}
+
+const SYSTEM_PROMPT = `You are an expert civic intelligence and security report classifier for Relay, a peace-tech system in Nigeria.
+Analyze incoming messages (written in English, Nigerian Pidgin, or local dialects) and return a JSON object with:
+
+1. "is_incident": boolean. Set to true for incident reports, threats, disputes, service failures, or civic concerns. Set to false for general non-incident questions (e.g. "what time does the market open?"), greetings, or general queries.
+2. "type": Must be one of ["Safety", "Stability", "Transparency"].
+   - Safety: threat to people/physical security
+   - Stability: disputes/tensions that could escalate
+   - Transparency: service failures/accountability gaps
+3. "severity": Must be one of ["High", "Medium", "Low"].
+4. "urgency": Must be one of ["High", "Medium", "Low"].
+   - High: imminent danger, act in minutes/hours
+   - Medium: act within days (e.g., a two-week-old broken borehole is Medium urgency, not High)
+   - Low: routine
+5. "location_text": Extracted primary landmark, market, or neighborhood name mentioned in the text (e.g. "Agege market", "Mile 12 market", "Ijegun primary school"), or null if no location is mentioned.
+6. "responsible_actor": Concise description of actor class that owns resolution.
+7. "sla": Target timeframe (e.g. "30 minutes", "24 hours", "72 hours").
+8. "confidence_score": Integer between 0 and 100 representing classification confidence based on report clarity and detail.
+
+Respond ONLY with valid JSON matching these fields. Do not wrap in backticks or markdown formatting.`;
 
 /**
  * Heuristic fallback classifier in case API key is missing or API call fails.
  */
-function fallbackClassify(text) {
+function fallbackClassify(text, reason = 'API key missing or request failed') {
+  console.warn(`[Classifier] FALLBACK USED: ${reason}`);
+
   const lower = text.toLowerCase();
 
-  if (lower.includes('armed') || lower.includes('gun') || lower.includes('weapon') || lower.includes('danger') || lower.includes('kill') || lower.includes('scared') || lower.includes('men gathering')) {
+  // Non-incident detection
+  if (
+    (lower.includes('what time') || lower.includes('when does') || lower.includes('how much') || lower.includes('hello') || lower.includes('hi ')) &&
+    !lower.includes('armed') && !lower.includes('fight') && !lower.includes('broken') && !lower.includes('weapon') && !lower.includes('borehole')
+  ) {
     return {
+      is_incident: false,
+      type: 'Transparency',
+      severity: 'Low',
+      urgency: 'Low',
+      location_text: null,
+      responsible_actor: 'Local community desk',
+      sla: '24 hours',
+      confidence_score: 90,
+      classified_by: 'fallback'
+    };
+  }
+
+  let locationText = null;
+  if (lower.includes('agege')) locationText = 'Agege market';
+  else if (lower.includes('mile 12') || lower.includes('mile12')) locationText = 'Mile 12 market';
+  else if (lower.includes('ijegun')) locationText = 'Ijegun primary school';
+
+  // Safety keywords checked with word boundaries to avoid false positives (e.g. "gun" in "Ijegun")
+  const isSafety = /\b(armed|gun|guns|weapon|weapons|danger|kill|killed|killing|scared|men gathering|dey run comot)\b/i.test(lower);
+  if (isSafety) {
+    const actorSla = getActorAndSla('Safety', 'High');
+    return {
+      is_incident: true,
       type: 'Safety',
       severity: 'High',
       urgency: 'High',
-      responsible_actor: 'Community security responder + local police PRO contact',
-      sla: '30 minutes',
-      confidence_score: 85
+      location_text: locationText || 'Agege market',
+      responsible_actor: actorSla.responsible_actor,
+      sla: actorSla.sla,
+      confidence_score: 85,
+      classified_by: 'fallback'
     };
   }
 
-  if (lower.includes('fight') || lower.includes('dispute') || lower.includes('stall') || lower.includes('crowd') || lower.includes('quarrel')) {
+  // Stability
+  const isStability = /\b(fight|fighting|dispute|stall|crowd|quarrel)\b/i.test(lower);
+  if (isStability) {
+    const actorSla = getActorAndSla('Stability', 'Medium');
     return {
+      is_incident: true,
       type: 'Stability',
       severity: 'Medium',
       urgency: 'Medium',
-      responsible_actor: 'Trained community mediator',
-      sla: '4 hours',
-      confidence_score: 80
+      location_text: locationText || 'Mile 12 market',
+      responsible_actor: actorSla.responsible_actor,
+      sla: actorSla.sla,
+      confidence_score: 80,
+      classified_by: 'fallback'
     };
   }
 
-  if (lower.includes('water') || lower.includes('borehole') || lower.includes('broken') || lower.includes('school') || lower.includes('road') || lower.includes('light')) {
+  // Transparency
+  const isTransparency = /\b(water|borehole|broken|school|road|light)\b/i.test(lower);
+  if (isTransparency) {
+    const actorSla = getActorAndSla('Transparency', 'Medium');
     return {
+      is_incident: true,
       type: 'Transparency',
       severity: 'Medium',
-      urgency: 'Low',
-      responsible_actor: 'Institutional work-order / Local government contact',
-      sla: '48 hours',
-      confidence_score: 80
+      urgency: 'Medium',
+      location_text: locationText || 'Ijegun primary school',
+      responsible_actor: actorSla.responsible_actor,
+      sla: actorSla.sla,
+      confidence_score: 80,
+      classified_by: 'fallback'
     };
   }
 
+  const actorSla = getActorAndSla('Safety', 'Medium');
   return {
+    is_incident: true,
     type: 'Safety',
     severity: 'Medium',
     urgency: 'Medium',
-    responsible_actor: 'Local community desk',
-    sla: '24 hours',
-    confidence_score: 60
+    location_text: locationText,
+    responsible_actor: actorSla.responsible_actor,
+    sla: actorSla.sla,
+    confidence_score: 60,
+    classified_by: 'fallback'
   };
 }
 
 /**
- * Classify a text report using Groq API (openai/gpt-oss-120b, OpenAI-compatible format).
+ * Classify a text report using Groq API (openai/gpt-oss-120b or process.env.GROQ_MODEL).
  * @param {string} text Report text input
  * @returns {Promise<Object>} Classification result
  */
@@ -77,10 +152,10 @@ async function classifyReport(text) {
   }
 
   const apiKey = process.env.GROQ_API_KEY;
+  const modelName = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
   if (!apiKey) {
-    console.warn('[Classifier] GROQ_API_KEY not found in environment. Using rule-based fallback classification.');
-    return fallbackClassify(text);
+    return fallbackClassify(text, 'GROQ_API_KEY not found in environment');
   }
 
   try {
@@ -91,19 +166,19 @@ async function classifyReport(text) {
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: modelName,
         response_format: { type: 'json_object' },
         temperature: 0,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Classify this incident report:\n\n"${text.trim()}"` }
+          { role: 'user', content: `Classify this message:\n\n"${text.trim()}"` }
         ]
       })
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Groq API responded with status ${response.status}: ${errText}`);
+      throw new Error(`Groq API status ${response.status}: ${errText}`);
     }
 
     const data = await response.json();
@@ -120,18 +195,23 @@ async function classifyReport(text) {
 
     const result = JSON.parse(jsonStr);
 
+    const type = result.type || 'Safety';
+    const severity = result.severity || 'Medium';
+    const actorSla = getActorAndSla(type, severity);
+
     return {
-      type: result.type || 'Safety',
-      severity: result.severity || 'Medium',
-      urgency: result.urgency || 'Medium',
-      responsible_actor: result.responsible_actor || 'Local community responder',
-      sla: result.sla || '24 hours',
-      confidence_score: typeof result.confidence_score === 'number' ? result.confidence_score : 80
+      is_incident: result.is_incident !== undefined ? Boolean(result.is_incident) : true,
+      type: type,
+      severity: severity,
+      urgency: result.urgency || (severity === 'High' ? 'High' : 'Medium'),
+      location_text: result.location_text || null,
+      responsible_actor: result.responsible_actor || actorSla.responsible_actor,
+      sla: result.sla || actorSla.sla,
+      confidence_score: typeof result.confidence_score === 'number' ? result.confidence_score : 80,
+      classified_by: 'llm'
     };
   } catch (err) {
-    console.error('[Classifier] Error during Groq API classification:', err.message);
-    console.warn('[Classifier] Falling back to rule-based classification.');
-    return fallbackClassify(text);
+    return fallbackClassify(text, err.message);
   }
 }
 

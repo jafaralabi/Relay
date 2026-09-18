@@ -1,0 +1,44 @@
+{
+  "Safety": {
+    "High": {
+      "responsible_actor": "Community security responder + local police PRO contact",
+      "sla": "30 minutes"
+    },
+    "Medium": {
+      "responsible_actor": "Community security responder",
+      "sla": "2 hours"
+    },
+    "Low": {
+      "responsible_actor": "Local neighborhood watch",
+      "sla": "12 hours"
+    }
+  },
+  "Stability": {
+    "High": {
+      "responsible_actor": "Local peace taskforce + district mediator",
+      "sla": "2 hours"
+    },
+    "Medium": {
+      "responsible_actor": "Trained community mediator",
+      "sla": "24 hours"
+    },
+    "Low": {
+      "responsible_actor": "Market association peace committee",
+      "sla": "48 hours"
+    }
+  },
+  "Transparency": {
+    "High": {
+      "responsible_actor": "State anti-corruption & public works taskforce",
+      "sla": "24 hours"
+    },
+    "Medium": {
+      "responsible_actor": "Local government works officer",
+      "sla": "72 hours"
+    },
+    "Low": {
+      "responsible_actor": "Local government desk officer",
+      "sla": "7 days"
+    }
+  }
+}
