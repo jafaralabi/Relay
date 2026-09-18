@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relay Demo Panel</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0d1117;
+      color: #c9d1d9;
+      margin: 0;
+      padding: 24px;
+    }
+    h1, h2, h3 {
+      color: #f0f6fc;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s, opacity 0.2s;
+    }
+    .btn-primary {
+      background-color: #238636;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background-color: #2ea043;
+    }
+    .btn-danger {
+      background-color: #da3633;
+      color: #ffffff;
+    }
+    .btn-danger:hover {
+      background-color: #f85149;
+    }
+    .btn-secondary {
+      background-color: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+    }
+    .btn-secondary:hover {
+      background-color: #30363d;
+    }
+    .btn-accent {
+      background-color: #1f6beb;
+      color: #ffffff;
+    }
+    .btn-accent:hover {
+      background-color: #388bfd;
+    }
+    .case-card {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #388bfd33;
+      color: #58a6ff;
+      border: 1px solid #388bfd66;
+    }
+    .trust-receipt {
+      background: #161b22;
+      border: 2px solid #238636;
+      border-radius: 8px;
+      padding: 20px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      color: #7ee787;
+    }
+    pre {
+      background: #0d1117;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Relay Demo Control Panel</h1>
+    <p>Simulate intake, deep-path case progression, and trust receipt verification.</p>
+
+    <div class="panel">
+      <h2>1. Demo State Controls</h2>
+      <div class="button-group">
+        <button class="btn-primary" onclick="seedDemo()">POST /api/demo/seed (Pre-populate 3 Demo Cases)</button>
+        <button class="btn-danger" onclick="resetDemo()">POST /api/demo/reset (Clear DB)</button>
+        <button class="btn-secondary" onclick="loadCases()">Refresh Cases List</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>2. Interactive Deep-Path Simulation</h2>
+      <div class="button-group">
+        <button class="btn-accent" onclick="submitEnglishReport()">Step 1: Submit English Report (Agege)</button>
+        <button class="btn-accent" onclick="submitPidginReport()">Step 2: Submit Corroborating Pidgin Report</button>
+        <button class="btn-accent" onclick="advanceAgege()">Step 3–7: Advance Agege Case Status</button>
+        <button class="btn-accent" onclick="submitThirdPartyVerify()">Step 8: Submit 3rd-Party Independent Verification</button>
+      </div>
+      <div id="action-status" style="margin-top: 10px; color: #58a6ff; font-weight: 500;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Active Cases</h2>
+      <div id="cases-list">Loading cases...</div>
+    </div>
+
+    <div class="panel">
+      <h2>Latest Trust Receipt</h2>
+      <div id="trust-receipt-view" class="trust-receipt">No case selected or verified yet.</div>
+    </div>
+  </div>
+
+  <script>
+    let activeAgegeId = null;
+
+    async function loadCases() {
+      try {
+        const res = await fetch('/api/cases');
+        const data = await res.json();
+        const container = document.getElementById('cases-list');
+
+        if (!data.cases || data.cases.length === 0) {
+          container.innerHTML = '<p>No cases found. Click "Seed" or submit a report.</p>';
+          return;
+        }
+
+        container.innerHTML = '';
+        data.cases.forEach(c => {
+          if (c.raw_report.includes('Agege') || c.id === 'RLA-9281') {
+            activeAgegeId = c.id;
+            renderTrustReceipt(c);
+          }
+
+          const card = document.createElement('div');
+          card.className = 'case-card';
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong>Case ID: ${c.id}</strong>
+              <span class="status-badge">${c.status}</span>
+            </div>
+            <p><strong>Type:</strong> ${c.type} | <strong>Severity:</strong> ${c.severity} | <strong>SLA:</strong> ${c.sla}</p>
+            <p><strong>Responsible Actor:</strong> ${c.responsible_actor}</p>
+            <p><strong>Raw Report:</strong> ${c.raw_report}</p>
+            <p><strong>Evidence count:</strong> ${c.evidence.length}</p>
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Error loading cases:', err);
+      }
+    }
+
+    function renderTrustReceipt(c) {
+      const receipt = `
+==================================================
+                 RELAY TRUST RECEIPT
+==================================================
+Case ID:            ${c.id}
+Status:             ${c.status}
+Evidence:           ${c.evidence.length} independent report(s)
+Responsible Actor:  ${c.responsible_actor}
+SLA:                ${c.sla}
+Acknowledged:       ${c.acknowledged_at || 'Pending'}
+Resolution:         ${c.independent_verification ? 'Independently Verified' : c.status}
+Closed:             ${c.status === 'Independently Verified' ? 'Yes' : 'No'}
+
+History:
+${c.history ? c.history.map(h => ` - [${h.status}] ${h.note}`).join('\n') : 'No history log'}
+==================================================
+      `.trim();
+
+      document.getElementById('trust-receipt-view').textContent = receipt;
+    }
+
+    async function seedDemo() {
+      const res = await fetch('/api/demo/seed', { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('action-status').textContent = data.message;
+      loadCases();
+    }
+
+    async function resetDemo() {
+      const res = await fetch('/api/demo/reset', { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('action-status').textContent = data.message;
+      activeAgegeId = null;
+      document.getElementById('trust-receipt-view').textContent = 'Database cleared.';
+      loadCases();
+    }
+
+    async function submitEnglishReport() {
+      const text = "There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early. This is happening right now.";
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, reporter: 'Reporter 1' })
+      });
+      const data = await res.json();
+      if (data.case) activeAgegeId = data.case.id;
+      document.getElementById('action-status').textContent = `Submitted English report. Created Case ${data.case ? data.case.id : ''}`;
+      loadCases();
+    }
+
+    async function submitPidginReport() {
+      if (!activeAgegeId) {
+        alert('Please submit English report or Seed demo first.');
+        return;
+      }
+      const res = await fetch(`/api/cases/${activeAgegeId}/advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: 'Corroborating Pidgin report received: Wetin dey happen for Agege market na serious o...' })
+      });
+      const data = await res.json();
+      document.getElementById('action-status').textContent = data.message || data.error;
+      loadCases();
+    }
+
+    async function advanceAgege() {
+      if (!activeAgegeId) {
+        alert('Please submit English report or Seed demo first.');
+        return;
+      }
+      const res = await fetch(`/api/cases/${activeAgegeId}/advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes_elapsed: 22 })
+      });
+      const data = await res.json();
+      document.getElementById('action-status').textContent = data.message || data.error;
+      loadCases();
+    }
+
+    async function submitThirdPartyVerify() {
+      if (!activeAgegeId) {
+        alert('Please submit English report or Seed demo first.');
+        return;
+      }
+      const res = await fetch(`/api/cases/${activeAgegeId}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: 'The area is calm now, responders arrived and dispersed everyone safely.',
+          verifier: 'Third Community Member'
+        })
+      });
+      const data = await res.json();
+      document.getElementById('action-status').textContent = data.message || data.error;
+      loadCases();
+    }
+
+    // Initial load
+    loadCases();
+  </script>
+</body>
+</html>
