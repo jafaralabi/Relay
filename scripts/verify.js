@@ -2,6 +2,8 @@ const http = require('http');
 const app = require('../src/app');
 const { clearCases, getAllCases } = require('../src/db');
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 function postJson(port, path, body) {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(body);
@@ -88,61 +90,113 @@ async function runVerification() {
   const port = server.address().port;
 
   const results = [];
+  const modelsUsed = new Set();
+  let fallbackCount = 0;
 
   try {
-    // Scenario 1: Deep Path - Report 1 (Agege English)
+    // Check 1: Lone report stays at Signal
+    console.log(`[1] Submitting lone report to verify it stays at Signal...`);
+    const loneText = "There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early.";
+    const loneRes = await postJson(port, '/api/reports', { text: loneText });
+    const loneCase = loneRes.body.case;
+
+    if (loneCase && loneCase.classified_by) {
+      modelsUsed.add(loneCase.classified_by);
+      if (loneCase.classified_by === 'fallback') fallbackCount++;
+    }
+
+    const test1Passed = Boolean(
+      loneCase &&
+      loneCase.status === 'Signal' &&
+      loneCase.confidence_score <= 45
+    );
+
+    results.push({
+      scenario: 'Lone Report Stays at Signal',
+      expected: 'Status: Signal, Confidence <= 45',
+      actual: loneCase ? `Status: ${loneCase.status}, Confidence: ${loneCase.confidence_score}` : 'Failed',
+      passed: test1Passed
+    });
+
+    // Clear DB to test full scenario chain
+    clearCases();
+    await sleep(1500);
+
+    // Check 2: Deep Path - Report 1 (Agege English)
     const agegeEnglishText = "There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early. This is happening right now.";
-    console.log(`[1] Submitting Agege English report...`);
+    console.log(`[2] Submitting Agege English report...`);
     const res1 = await postJson(port, '/api/reports', { text: agegeEnglishText });
     const case1 = res1.body.case;
 
-    const test1Passed = Boolean(
+    if (case1 && case1.classified_by) {
+      modelsUsed.add(case1.classified_by);
+      if (case1.classified_by === 'fallback') fallbackCount++;
+    }
+
+    const test2Passed = Boolean(
       case1 &&
       case1.type === 'Safety' &&
       case1.severity === 'High' &&
       case1.urgency === 'High' &&
-      case1.location_text === 'Agege market'
+      case1.location_text === 'Agege market' &&
+      case1.status === 'Signal'
     );
 
     results.push({
       scenario: 'Agege English Ingest',
-      expected: 'Safety / High / High @ Agege market',
-      actual: case1 ? `${case1.type} / ${case1.severity} / ${case1.urgency} @ ${case1.location_text}` : 'Failed',
-      passed: test1Passed
+      expected: 'Safety / High / High @ Agege market (Signal)',
+      actual: case1 ? `${case1.type} / ${case1.severity} / ${case1.urgency} @ ${case1.location_text} (${case1.status})` : 'Failed',
+      passed: test2Passed
     });
 
-    // Scenario 2: Deep Path - Report 2 (Agege Pidgin Corroborating Report)
-    const agegePidginText = "Wetin dey happen for Agege market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot.";
-    console.log(`[2] Submitting Agege Pidgin corroborating report...`);
-    const res2 = await postJson(port, '/api/reports', { text: agegePidginText });
+    await sleep(1500);
+
+    // Check 3: "Agaigee Market" phonetic voice/text report merges with "Agege market"
+    const agaigeeText = "Wetin dey happen for Agaigee Market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot.";
+    console.log(`[3] Submitting Agaigee Market corroborating report...`);
+    const res2 = await postJson(port, '/api/reports', { text: agaigeeText });
     const case2 = res2.body.case;
+
+    if (case2 && case2.classified_by) {
+      modelsUsed.add(case2.classified_by);
+      if (case2.classified_by === 'fallback') fallbackCount++;
+    }
 
     const allDbCases = getAllCases();
     const isSingleMergedCase = (allDbCases.length === 1);
-    const test2Passed = Boolean(
+    const test3Passed = Boolean(
       case2 &&
+      case1 &&
       case2.id === case1.id &&
       isSingleMergedCase &&
       case2.status === 'Accepted' &&
       case2.evidence.length >= 2 &&
+      case2.confidence_score >= 70 &&
       case2.sla === '30 minutes' &&
       case2.acknowledged_at !== null
     );
 
     results.push({
-      scenario: 'Agege Pidgin Corroboration',
-      expected: 'Merged into 1 Case, Status: Accepted, SLA: 30 min',
-      actual: case2 ? `Case ID ${case2.id}, Status: ${case2.status}, SLA: ${case2.sla}, Evidence count: ${case2.evidence.length}` : 'Failed',
-      passed: test2Passed
+      scenario: 'Agaigee Market Corroboration & Merge',
+      expected: 'Merged into 1 Case, Status: Accepted, Score >= 70, SLA: 30 min',
+      actual: case2 ? `Case ID ${case2.id}, Status: ${case2.status}, Score: ${case2.confidence_score}, SLA: ${case2.sla}, Evidence count: ${case2.evidence.length}` : 'Failed',
+      passed: test3Passed
     });
 
-    // Scenario 3: Shallow Path 1 - Mile 12 Market Dispute
+    await sleep(1500);
+
+    // Check 4: Shallow Path 1 - Mile 12 Market Dispute
     const mile12Text = "Two traders are fighting over a stall space at Mile 12 market, it's getting loud and a crowd is forming.";
-    console.log(`[3] Submitting Mile 12 market report...`);
+    console.log(`[4] Submitting Mile 12 market report...`);
     const res3 = await postJson(port, '/api/reports', { text: mile12Text });
     const case3 = res3.body.case;
 
-    const test3Passed = Boolean(
+    if (case3 && case3.classified_by) {
+      modelsUsed.add(case3.classified_by);
+      if (case3.classified_by === 'fallback') fallbackCount++;
+    }
+
+    const test4Passed = Boolean(
       case3 &&
       case3.type === 'Stability' &&
       case3.severity === 'Medium' &&
@@ -153,16 +207,23 @@ async function runVerification() {
       scenario: 'Mile 12 Dispute (Shallow 1)',
       expected: 'Stability / Medium -> Accepted',
       actual: case3 ? `${case3.type} / ${case3.severity} -> ${case3.status}` : 'Failed',
-      passed: test3Passed
+      passed: test4Passed
     });
 
-    // Scenario 4: Shallow Path 2 - Ijegun Borehole Service Failure
+    await sleep(1500);
+
+    // Check 5: Shallow Path 2 - Ijegun Borehole Service Failure
     const ijegunText = "The borehole at Ijegun primary school has been broken for two weeks, children have no water.";
-    console.log(`[4] Submitting Ijegun borehole report...`);
+    console.log(`[5] Submitting Ijegun borehole report...`);
     const res4 = await postJson(port, '/api/reports', { text: ijegunText });
     const case4 = res4.body.case;
 
-    const test4Passed = Boolean(
+    if (case4 && case4.classified_by) {
+      modelsUsed.add(case4.classified_by);
+      if (case4.classified_by === 'fallback') fallbackCount++;
+    }
+
+    const test5Passed = Boolean(
       case4 &&
       case4.type === 'Transparency' &&
       case4.severity === 'Medium' &&
@@ -173,15 +234,17 @@ async function runVerification() {
       scenario: 'Ijegun Borehole (Shallow 2)',
       expected: 'Transparency / Medium -> Assigned (Stops at Assigned)',
       actual: case4 ? `${case4.type} / ${case4.severity} -> ${case4.status}` : 'Failed',
-      passed: test4Passed
+      passed: test5Passed
     });
 
-    // Scenario 5: Non-Incident Query Test
+    await sleep(1500);
+
+    // Check 6: Non-Incident Query Test
     const nonIncidentText = "what time does the market open?";
-    console.log(`[5] Submitting non-incident query...`);
+    console.log(`[6] Submitting non-incident query...`);
     const res5 = await postJson(port, '/api/reports', { text: nonIncidentText });
 
-    const test5Passed = Boolean(
+    const test6Passed = Boolean(
       res5.body.success === true &&
       res5.body.case === null &&
       res5.body.note
@@ -191,24 +254,54 @@ async function runVerification() {
       scenario: 'Non-Incident Query',
       expected: '{ success: true, case: null, note: ... }',
       actual: JSON.stringify(res5.body),
-      passed: test5Passed
+      passed: test6Passed
     });
 
-    // Scenario 6: Voice Upload Endpoint Test
-    console.log(`[6] Submitting POST /api/reports/voice audio report...`);
-    const dummyAudioBuffer = Buffer.from('FAKE_AUDIO_DATA_FOR_VOICE_TRANSCRIPTION_TEST');
-    const res6 = await postMultipartVoice(port, '/api/reports/voice', dummyAudioBuffer, 'report.mp3');
+    await sleep(1500);
 
-    const test6Passed = Boolean(
-      res6.body.success === true &&
-      res6.body.case !== null
-    );
+    // Check 7: Corrupted Voice File returns HTTP 502 with no case created
+    console.log(`[7] Submitting corrupted voice audio file to POST /api/reports/voice...`);
+    const corruptAudioBuffer = Buffer.from('CORRUPTED_NON_AUDIO_GARBAGE_DATA_XYZ_123');
+    const casesCountBefore = getAllCases().length;
+    const res6 = await postMultipartVoice(port, '/api/reports/voice', corruptAudioBuffer, 'corrupt.mp3');
+    const casesCountAfter = getAllCases().length;
+
+    const isDemoMode = process.env.DEMO_MODE === 'true';
+    let test7Passed = false;
+
+    if (isDemoMode) {
+      // In DEMO_MODE, mock transcription is allowed
+      test7Passed = Boolean(res6.body.success === true && res6.body.case !== null);
+    } else {
+      // In normal mode, corrupted voice note must return HTTP 502 with no case created
+      test7Passed = Boolean(
+        res6.statusCode === 502 &&
+        res6.body.success === false &&
+        res6.body.error === 'transcription_failed' &&
+        casesCountBefore === casesCountAfter
+      );
+    }
 
     results.push({
-      scenario: 'Voice Report Intake (Groq Whisper)',
-      expected: 'Transcribed speech -> Case processed',
-      actual: res6.body.case ? `Case ID ${res6.body.case.id}, Status: ${res6.body.case.status}` : 'Failed',
-      passed: test6Passed
+      scenario: 'Corrupt Voice Upload Error Handling',
+      expected: isDemoMode ? 'DEMO_MODE mock transcription created case' : 'HTTP 502 { success: false, error: "transcription_failed" }, no case created',
+      actual: `HTTP ${res6.statusCode}: ${JSON.stringify(res6.body)} (Cases before: ${casesCountBefore}, after: ${casesCountAfter})`,
+      passed: test7Passed
+    });
+
+    // Check 8: Voice transcription check - fail loudly if mock used without DEMO_MODE=true
+    let voiceMockCheckPassed = true;
+    const voiceCases = getAllCases().filter(c => c.transcribed_by === 'mock');
+    if (!isDemoMode && voiceCases.length > 0) {
+      voiceMockCheckPassed = false;
+      console.error('❌ FAIL: Mock transcription was used for voice cases when DEMO_MODE was not true.');
+    }
+
+    results.push({
+      scenario: 'Voice Mock Transcription Gate Check',
+      expected: 'No mock transcriptions unless DEMO_MODE=true',
+      actual: voiceCases.length > 0 ? `${voiceCases.length} mock transcribed case(s) found` : 'All voice notes processed via Whisper',
+      passed: voiceMockCheckPassed
     });
 
     // Output Pass/Fail Summary Table
@@ -227,6 +320,10 @@ async function runVerification() {
     });
 
     console.log('\n----------------------------------------------------');
+    console.log(`Models Used: ${Array.from(modelsUsed).join(', ') || 'None'}`);
+    console.log(`Fallback Used: ${fallbackCount > 0 ? `YES (${fallbackCount} time(s))` : 'NO'}`);
+    console.log('----------------------------------------------------');
+
     if (allPassed) {
       console.log('🎉 ALL VERIFICATION TESTS PASSED SUCCESSFULLY!');
       console.log('----------------------------------------------------');
