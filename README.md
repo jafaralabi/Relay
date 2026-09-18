@@ -56,7 +56,7 @@ Closed: Yes
 ## How it works (this PoC)
 
 1. A report comes in via WhatsApp (test number) or a web chat fallback — text or voice
-2. Voice is transcribed (Whisper)
+2. Voice is transcribed (Groq-hosted Whisper Large V3 — free tier, OpenAI-compatible)
 3. Claude classifies type, severity, urgency, and which class of actor owns the problem
 4. A simplified confidence score combines corroboration, consistency, and evidence
 5. The case is assigned to a demo responsible actor, who accepts an SLA
@@ -99,7 +99,7 @@ exist.
 | Layer | Choice |
 |---|---|
 | Classification / routing | Anthropic Claude API |
-| Speech-to-text | OpenAI Whisper API |
+| Speech-to-text | Groq API (Whisper Large V3, free tier) |
 | Backend | Node.js / Express (or FastAPI — see code) |
 | Messaging channel | WhatsApp Cloud API (test number) + web chat fallback |
 | Map | Leaflet.js + OpenStreetMap |
@@ -111,7 +111,7 @@ exist.
 git clone https://github.com/<your-username>/relay.git
 cd relay
 npm install          # or: pip install -r requirements.txt
-cp .env.example .env # add your ANTHROPIC_API_KEY and OPENAI_API_KEY
+cp .env.example .env # add your ANTHROPIC_API_KEY and GROQ_API_KEY
 npm run dev          # or: uvicorn app:app --reload
 ```
 
