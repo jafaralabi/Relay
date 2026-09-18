@@ -1,0 +1,23 @@
+[
+  {
+    "id": "agege-market",
+    "name": "Agege market",
+    "lat": 6.6180,
+    "lng": 3.3209,
+    "keywords": ["agege", "agege market", "agege bus stop"]
+  },
+  {
+    "id": "mile-12-market",
+    "name": "Mile 12 market",
+    "lat": 6.6120,
+    "lng": 3.3850,
+    "keywords": ["mile 12", "mile 12 market", "mile12"]
+  },
+  {
+    "id": "ijegun",
+    "name": "Ijegun",
+    "lat": 6.5385,
+    "lng": 3.2530,
+    "keywords": ["ijegun", "ijegun primary school"]
+  }
+]

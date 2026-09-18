@@ -1,0 +1,26 @@
+{
+  "mappings": [
+    {
+      "type": "Safety",
+      "severity": "High",
+      "actor": "Community Security Responder + Local Police PRO Contact",
+      "sla": "30 minutes"
+    },
+    {
+      "type": "Stability",
+      "severity": "Medium",
+      "actor": "Trained Community Mediator",
+      "sla": "24 hours"
+    },
+    {
+      "type": "Transparency",
+      "severity": "Medium",
+      "actor": "Local Government Works Officer",
+      "sla": "72 hours"
+    }
+  ],
+  "default": {
+    "actor": "Local Community Safety Liaison",
+    "sla": "48 hours"
+  }
+}
