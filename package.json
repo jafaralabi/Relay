@@ -1,0 +1,21 @@
+{
+  "name": "relay",
+  "version": "1.0.0",
+  "description": "Relay turns trusted community signals into accountable action.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node scripts/test_ingest.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bn-Zubair/Relay.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^18.0.0",
+    "express": "^5.2.1",
+    "uuid": "^14.0.2"
+  }
+}
