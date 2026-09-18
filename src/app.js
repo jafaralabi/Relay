@@ -1,11 +1,15 @@
 const express = require('express');
 const { classifyReport } = require('./classifier');
 const { createCase, getAllCases, getCaseById } = require('./db');
+const whatsappRouter = require('./whatsapp');
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Mount WhatsApp webhook routes (/webhook)
+app.use('/', whatsappRouter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
