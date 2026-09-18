@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { resetDb, getAllCases, getCaseById } = require('../src/db');
+const { clearCases, getAllCases, getCaseById } = require('../src/db');
 const { processReport } = require('../src/pipeline');
 
 async function runVerification() {
@@ -8,7 +8,7 @@ async function runVerification() {
   console.log('       RELAY BACKEND VERIFICATION SUITE             ');
   console.log('====================================================\n');
 
-  resetDb();
+  clearCases();
 
   const results = [];
 

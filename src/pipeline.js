@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { createCase, updateCase, getCaseById, getAllCases, findMatchingActiveCase } = require('./db');
-const { classifyReport } = require('./groq');
+const { classifyReport } = require('./classifier');
 const { calculateConfidenceScore } = require('./confidence');
 
 // Load static gazetteer and actor data
@@ -96,14 +96,12 @@ async function processReport({ text, lat, lng, reporter = 'Anonymous', isVoice =
       caseRecord.transcript = transcript;
     }
 
-    // Record history for corroborating report
     caseRecord.history.push({
       status: caseRecord.status === 'Signal' ? 'Corroborating' : caseRecord.status,
       at: now,
       note: `Corroborating report received from ${reporter}`
     });
 
-    // If case is still Signal, update status to Corroborating
     if (caseRecord.status === 'Signal') {
       caseRecord.status = 'Corroborating';
     }
@@ -119,7 +117,6 @@ async function processReport({ text, lat, lng, reporter = 'Anonymous', isVoice =
 
     caseRecord.confidence_score = newConfidence;
 
-    // Transition rules for existing case
     evaluateTransitions(caseRecord, actor, sla, now);
 
     return updateCase(caseRecord.id, caseRecord);
@@ -160,11 +157,12 @@ async function processReport({ text, lat, lng, reporter = 'Anonymous', isVoice =
           note: `Initial signal report received via ${isVoice ? 'voice' : 'text'}`
         }
       ],
+      raw_report: reportText,
+      classified_by: 'Groq (Llama 3.3 70B)',
       created_at: now,
       updated_at: now
     };
 
-    // Evaluate transitions for new case
     evaluateTransitions(newCase, actor, sla, now);
 
     return createCase(newCase);
@@ -175,7 +173,6 @@ async function processReport({ text, lat, lng, reporter = 'Anonymous', isVoice =
  * Handles status schema transitions: Signal/Corroborating -> Verified -> Assigned -> Accepted
  */
 function evaluateTransitions(c, actor, sla, now) {
-  // Check if confidence >= 60 to verify
   if (c.confidence_score >= 60 && (c.status === 'Signal' || c.status === 'Corroborating')) {
     c.status = 'Verified';
     c.history.push({
@@ -185,7 +182,6 @@ function evaluateTransitions(c, actor, sla, now) {
     });
   }
 
-  // If Verified -> Assign responsible actor
   if (c.status === 'Verified') {
     c.status = 'Assigned';
     c.responsible_actor = actor;
@@ -197,8 +193,6 @@ function evaluateTransitions(c, actor, sla, now) {
     });
   }
 
-  // Check if case should auto-accept
-  // Per BUILD_BRIEF §6: Medium-severity Transparency cases stop at Assigned.
   if (c.status === 'Assigned') {
     const isMediumTransparency = c.type === 'Transparency' && c.severity === 'Medium';
     if (!isMediumTransparency) {

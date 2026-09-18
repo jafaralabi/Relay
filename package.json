@@ -1,16 +1,22 @@
 {
-  "name": "relay-backend",
+  "name": "relay",
   "version": "1.0.0",
-  "description": "Relay - AI-native signal-to-resolution infrastructure",
+  "description": "Relay turns trusted community signals into accountable action.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node scripts/verify.js"
+    "test": "node scripts/test_ingest.js && node scripts/verify.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bn-Zubair/Relay.git"
+  },
+  "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^11.8.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^10.0.0"
   }
 }
