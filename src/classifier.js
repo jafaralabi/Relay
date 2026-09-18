@@ -1,5 +1,7 @@
-const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
+
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 const SYSTEM_PROMPT = `You are an expert civic intelligence and security report classifier for Relay, a peace-tech innovation system.
 Analyze incoming incident reports and output a JSON object with the following fields:
@@ -65,7 +67,7 @@ function fallbackClassify(text) {
 }
 
 /**
- * Classify a text report using Anthropic Claude API (with fallback).
+ * Classify a text report using Groq API (llama-3.3-70b-versatile, OpenAI-compatible format).
  * @param {string} text Report text input
  * @returns {Promise<Object>} Classification result
  */
@@ -74,36 +76,44 @@ async function classifyReport(text) {
     throw new Error('Report text cannot be empty.');
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
-    console.warn('[Classifier] ANTHROPIC_API_KEY not found in environment. Using rule-based fallback classification.');
+    console.warn('[Classifier] GROQ_API_KEY not found in environment. Using rule-based fallback classification.');
     return fallbackClassify(text);
   }
 
   try {
-    const anthropic = new Anthropic({ apiKey });
-
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 500,
-      temperature: 0,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `Classify this incident report:\n\n"${text.trim()}"`
-        }
-      ]
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        response_format: { type: 'json_object' },
+        temperature: 0,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: `Classify this incident report:\n\n"${text.trim()}"` }
+        ]
+      })
     });
 
-    const contentBlock = response.content && response.content[0];
-    if (!contentBlock || !contentBlock.text) {
-      throw new Error('Empty response from Claude API.');
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Groq API responded with status ${response.status}: ${errText}`);
     }
 
-    let jsonStr = contentBlock.text.trim();
-    // Remove markdown code fence if wrapped
+    const data = await response.json();
+    const contentText = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+
+    if (!contentText) {
+      throw new Error('Empty message content in Groq API response.');
+    }
+
+    let jsonStr = contentText.trim();
     if (jsonStr.startsWith('```')) {
       jsonStr = jsonStr.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '').trim();
     }
@@ -119,7 +129,7 @@ async function classifyReport(text) {
       confidence_score: typeof result.confidence_score === 'number' ? result.confidence_score : 80
     };
   } catch (err) {
-    console.error('[Classifier] Error during Claude API classification:', err.message);
+    console.error('[Classifier] Error during Groq API classification:', err.message);
     console.warn('[Classifier] Falling back to rule-based classification.');
     return fallbackClassify(text);
   }
