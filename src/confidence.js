@@ -12,6 +12,7 @@ const CONFIDENCE_WEIGHTS = {
 
 /**
  * Calculates confidence score (0-100) based on weighted signals.
+ * A single report's score is capped at 45.
  * @param {Object} options
  * @param {number} options.corroboratingCount Number of additional matching reports
  * @param {boolean} options.hasGeospatial Verified lat/lng or gazetteer match
@@ -45,7 +46,14 @@ function calculateConfidenceScore({
     score -= 20;
   }
 
-  return Math.min(100, Math.max(0, Math.round(score)));
+  score = Math.min(100, Math.max(0, Math.round(score)));
+
+  // Single unverified report must be capped at 45
+  if (corroboratingCount === 0) {
+    return Math.min(45, score);
+  }
+
+  return score;
 }
 
 module.exports = {
