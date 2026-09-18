@@ -20,7 +20,9 @@
     },
     "Medium": {
       "responsible_actor": "Trained community mediator",
-      "sla": "24 hours"
+      "sla": "24 hours",
+      "demo_route": true,
+      "stop_status": "Accepted"
     },
     "Low": {
       "responsible_actor": "Market association peace committee",
@@ -34,7 +36,9 @@
     },
     "Medium": {
       "responsible_actor": "Local government works officer",
-      "sla": "72 hours"
+      "sla": "72 hours",
+      "demo_route": true,
+      "stop_status": "Assigned"
     },
     "Low": {
       "responsible_actor": "Local government desk officer",

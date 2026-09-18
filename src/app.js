@@ -7,6 +7,7 @@ const { classifyReport } = require('./classifier');
 const { createCase, updateCase, findMatchingCase, getAllCases, getCaseById } = require('./db');
 const { calculateConfidenceScore } = require('./confidence');
 const { transcribeAudio } = require('./transcribe');
+const { fuzzyMatchLocation } = require('./location');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const app = express();
@@ -37,32 +38,25 @@ try {
 }
 
 /**
- * Match location text against gazetteer or override with explicit lat/lng.
+ * Match location text against gazetteer or override with explicit lat/lng using fuzzy location resolution.
  */
 function resolveLocation(locationText, inputLat, inputLng) {
   let lat = (inputLat !== undefined && inputLat !== null) ? Number(inputLat) : null;
   let lng = (inputLng !== undefined && inputLng !== null) ? Number(inputLng) : null;
-  let resolvedText = locationText || null;
 
-  if (locationsData.length > 0) {
-    const searchStr = (locationText || '').toLowerCase();
-    for (const loc of locationsData) {
-      const matchName = loc.name && searchStr.includes(loc.name.toLowerCase());
-      const matchAlias = loc.aliases && loc.aliases.some(alias => searchStr.includes(alias.toLowerCase()));
-      if (matchName || matchAlias) {
-        if (lat === null) lat = loc.lat;
-        if (lng === null) lng = loc.lng;
-        if (!resolvedText) resolvedText = loc.name;
-        break;
-      }
-    }
+  const matchedLoc = fuzzyMatchLocation(locationText, locationsData);
+
+  if (matchedLoc) {
+    if (lat === null) lat = matchedLoc.lat;
+    if (lng === null) lng = matchedLoc.lng;
+    return { lat, lng, location_text: matchedLoc.name };
   }
 
-  return { lat, lng, location_text: resolvedText };
+  return { lat, lng, location_text: locationText || null };
 }
 
 /**
- * Get configured actor and SLA for type & severity.
+ * Get configured actor and SLA for type & severity, along with demo_route settings.
  */
 function getActorAndSla(type, severity) {
   if (actorsData[type] && actorsData[type][severity]) {
@@ -77,7 +71,7 @@ function getActorAndSla(type, severity) {
 /**
  * Core intake processing logic for reports (text or voice).
  */
-async function processReportIntake({ text, inputLat, inputLng, isVoice = false, transcript = null }) {
+async function processReportIntake({ text, inputLat, inputLng, isVoice = false, transcript = null, transcribedBy = null }) {
   const reportText = text.trim();
 
   // 1. Classification via LLM / Hardened Fallback
@@ -92,7 +86,7 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
     };
   }
 
-  // 3. Gazetteer / Location Resolution
+  // 3. Gazetteer / Fuzzy Location Resolution
   const locationInfo = resolveLocation(
     classification.location_text || reportText,
     inputLat,
@@ -117,7 +111,7 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
     console.log(`[Intake] Corroborating report matched existing case ${existingCase.id}. Merging evidence.`);
 
     const evidenceEntry = isVoice
-      ? { type: 'voice', text: reportText, transcript: transcript || reportText, at: now }
+      ? { type: 'voice', text: reportText, transcript: transcript || reportText, transcribed_by: transcribedBy || 'whisper', at: now }
       : reportText;
 
     const updatedEvidence = [...existingCase.evidence, evidenceEntry];
@@ -146,7 +140,8 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
       lat: existingCase.lat || locationInfo.lat,
       lng: existingCase.lng || locationInfo.lng,
       location_text: existingCase.location_text || locationInfo.location_text,
-      transcript: transcript || existingCase.transcript
+      transcript: transcript || existingCase.transcript,
+      transcribed_by: transcribedBy || existingCase.transcribed_by || null
     };
   } else {
     // Create new Case at status 'Signal'
@@ -169,53 +164,91 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
       confidence_score: initialConfidence,
       responsible_actor: classification.responsible_actor || actorSla.responsible_actor,
       sla: classification.sla || actorSla.sla,
-      evidence: isVoice ? [{ type: 'voice', text: reportText, transcript: transcript || reportText, at: now }] : [reportText],
+      evidence: isVoice ? [{ type: 'voice', text: reportText, transcript: transcript || reportText, transcribed_by: transcribedBy || 'whisper', at: now }] : [reportText],
       raw_report: reportText,
       lat: locationInfo.lat,
       lng: locationInfo.lng,
       location_text: locationInfo.location_text,
       transcript: transcript || null,
+      transcribed_by: transcribedBy || null,
       classified_by: classification.classified_by || 'llm',
       history: [{ status: 'Signal', at: now, note: 'Initial signal received' }]
     });
   }
 
   // 5. Automated Status Transitions & SLA Assignment Workflow
-  // Workflow: Signal/Corroborating -> (Confidence >= 60) -> Verified -> Assigned -> (Auto-accept) -> Accepted
-  // Note: Medium-severity Transparency cases stop at Assigned (per BUILD_BRIEF §6).
+  // Rule:
+  // Verified requires at least 2 independent reports (evidence.length >= 2) AND confidence >= 60.
+  // Exception: Scripted demo scenarios (demo_route: true in data/actors.json) for shallow paths (Mile 12 and Ijegun).
+  const actorConfig = getActorAndSla(targetCase.type, targetCase.severity);
+  const isDemoRoute = Boolean(actorConfig && actorConfig.demo_route);
 
-  if (targetCase.confidence_score >= 60 && (targetCase.status === 'Signal' || targetCase.status === 'Corroborating')) {
-    targetCase.status = 'Verified';
-    targetCase.history.push({
-      status: 'Verified',
-      at: now,
-      note: `Confidence score (${targetCase.confidence_score}) met verification threshold (>=60)`
-    });
-  }
+  if (isDemoRoute) {
+    const stopStatus = actorConfig.stop_status || 'Assigned';
 
-  if (targetCase.status === 'Verified') {
-    const actorSla = getActorAndSla(targetCase.type, targetCase.severity);
-    targetCase.responsible_actor = actorSla.responsible_actor;
-    targetCase.sla = actorSla.sla;
-    targetCase.status = 'Assigned';
-    targetCase.history.push({
-      status: 'Assigned',
-      at: now,
-      note: `Assigned to ${targetCase.responsible_actor} with SLA ${targetCase.sla}`
-    });
-  }
+    // Transition Signal -> Verified -> Assigned -> (stopStatus) for demo routing
+    if (targetCase.status === 'Signal' || targetCase.status === 'Corroborating') {
+      targetCase.status = 'Verified';
+      targetCase.history.push({
+        status: 'Verified',
+        at: now,
+        note: 'demo scenario: scripted routing'
+      });
+    }
 
-  // Check auto-accept exception: Medium-severity Transparency cases stop at Assigned
-  const isMediumTransparency = (targetCase.type === 'Transparency' && targetCase.severity === 'Medium');
+    if (targetCase.status === 'Verified') {
+      targetCase.status = 'Assigned';
+      targetCase.responsible_actor = actorConfig.responsible_actor;
+      targetCase.sla = actorConfig.sla;
+      targetCase.history.push({
+        status: 'Assigned',
+        at: now,
+        note: 'demo scenario: scripted routing'
+      });
+    }
 
-  if (targetCase.status === 'Assigned' && !isMediumTransparency) {
-    targetCase.status = 'Accepted';
-    targetCase.acknowledged_at = now;
-    targetCase.history.push({
-      status: 'Accepted',
-      at: now,
-      note: `Scripted responder (${targetCase.responsible_actor}) auto-accepted assignment`
-    });
+    if (targetCase.status === 'Assigned' && stopStatus === 'Accepted') {
+      targetCase.status = 'Accepted';
+      targetCase.acknowledged_at = now;
+      targetCase.history.push({
+        status: 'Accepted',
+        at: now,
+        note: 'demo scenario: scripted routing'
+      });
+    }
+  } else {
+    // Normal multi-report verification workflow
+    const reportCount = targetCase.evidence.length;
+    if (reportCount >= 2 && targetCase.confidence_score >= 60 && (targetCase.status === 'Signal' || targetCase.status === 'Corroborating')) {
+      targetCase.status = 'Verified';
+      targetCase.history.push({
+        status: 'Verified',
+        at: now,
+        note: `Verified with ${reportCount} independent reports and confidence score (${targetCase.confidence_score}) >= 60`
+      });
+    }
+
+    if (targetCase.status === 'Verified') {
+      const actorSla = getActorAndSla(targetCase.type, targetCase.severity);
+      targetCase.responsible_actor = actorSla.responsible_actor;
+      targetCase.sla = actorSla.sla;
+      targetCase.status = 'Assigned';
+      targetCase.history.push({
+        status: 'Assigned',
+        at: now,
+        note: `Assigned to ${targetCase.responsible_actor} with SLA ${targetCase.sla}`
+      });
+    }
+
+    if (targetCase.status === 'Assigned') {
+      targetCase.status = 'Accepted';
+      targetCase.acknowledged_at = now;
+      targetCase.history.push({
+        status: 'Accepted',
+        at: now,
+        note: `Scripted responder (${targetCase.responsible_actor}) auto-accepted assignment`
+      });
+    }
   }
 
   // Save updated case record to DB
@@ -269,15 +302,25 @@ app.post('/api/reports/voice', upload.any(), async (req, res) => {
       return res.status(400).json({ error: 'Audio file upload is required.' });
     }
 
-    // Transcribe speech to text via Groq Whisper Large V3
-    const transcriptText = await transcribeAudio(file.buffer, file.originalname, file.mimetype);
+    let transcriptionResult;
+    try {
+      transcriptionResult = await transcribeAudio(file.buffer, file.originalname, file.mimetype);
+    } catch (err) {
+      console.error('[Voice Intake Transcription Failed]', err.message);
+      return res.status(502).json({
+        success: false,
+        error: 'transcription_failed',
+        detail: err.message
+      });
+    }
 
     const result = await processReportIntake({
-      text: transcriptText,
+      text: transcriptionResult.text,
       inputLat: req.body.lat,
       inputLng: req.body.lng,
       isVoice: true,
-      transcript: transcriptText
+      transcript: transcriptionResult.text,
+      transcribedBy: transcriptionResult.transcribedBy
     });
 
     if (!result.case) {

@@ -22,5 +22,21 @@
     "lng": 3.2573,
     "city": "Lagos",
     "state": "Lagos"
+  },
+  {
+    "name": "Oshodi",
+    "aliases": ["oshodi", "oshodi market", "oshodi bus stop"],
+    "lat": 6.5538,
+    "lng": 3.3516,
+    "city": "Lagos",
+    "state": "Lagos"
+  },
+  {
+    "name": "Ikorodu",
+    "aliases": ["ikorodu", "ikorodu market", "ikorodu garage"],
+    "lat": 6.6194,
+    "lng": 3.5105,
+    "city": "Lagos",
+    "state": "Lagos"
   }
 ]
