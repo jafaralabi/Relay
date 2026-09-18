@@ -1,0 +1,156 @@
+{
+  "cases": [
+    {
+      "id": "RLA-9281",
+      "status": "Independently Verified",
+      "type": "Safety",
+      "severity": "High",
+      "confidence_score": 92,
+      "responsible_actor": "Community Security Responder & Local Police PRO",
+      "sla": "30 minutes",
+      "acknowledged_at": "2026-09-18T10:15:00Z",
+      "evidence": [
+        "Initial text report from WhatsApp (+2348012345678)",
+        "Pidgin voice note corroborating armed group at bus stop",
+        "Geolocation tagged within 50m of Agege market entrance"
+      ],
+      "independent_verification": "Confirmed by a third community member 20 minutes later that the area is clear and calm.",
+      "created_at": "2026-09-18T09:53:00Z",
+      "updated_at": "2026-09-18T11:30:00Z",
+      "lat": 6.6180,
+      "lng": 3.3209,
+      "location_text": "Agege Market Entrance, Lagos",
+      "history": [
+        {
+          "status": "Signal",
+          "at": "2026-09-18T09:53:00Z",
+          "note": "Initial report received via WhatsApp text"
+        },
+        {
+          "status": "Corroborating",
+          "at": "2026-09-18T10:01:00Z",
+          "note": "Second report (Pidgin voice note) received from same location"
+        },
+        {
+          "status": "Verified",
+          "at": "2026-09-18T10:05:00Z",
+          "note": "Multi-source confidence score reached 92/100"
+        },
+        {
+          "status": "Assigned",
+          "at": "2026-09-18T10:10:00Z",
+          "note": "Assigned to Community Security Responder & Local Police PRO"
+        },
+        {
+          "status": "Accepted",
+          "at": "2026-09-18T10:15:00Z",
+          "note": "Responder accepted SLA (30 min requirement met in 22 mins)"
+        },
+        {
+          "status": "In Progress",
+          "at": "2026-09-18T10:20:00Z",
+          "note": "Security patrol dispatched to Agege market entrance"
+        },
+        {
+          "status": "Claimed Resolved",
+          "at": "2026-09-18T10:50:00Z",
+          "note": "Responders dispersed armed group, no injuries reported"
+        },
+        {
+          "status": "Independently Verified",
+          "at": "2026-09-18T11:10:00Z",
+          "note": "Third-party community member verified market entrance is peaceful"
+        }
+      ]
+    },
+    {
+      "id": "RLA-4412",
+      "status": "Accepted",
+      "type": "Stability",
+      "severity": "Medium",
+      "confidence_score": 75,
+      "responsible_actor": "Mile 12 Market Mediation Council",
+      "sla": "2 hours",
+      "acknowledged_at": "2026-09-18T12:30:00Z",
+      "evidence": [
+        "Text report of stall dispute and growing crowd",
+        "Geotagged near Mile 12 Market Section B"
+      ],
+      "independent_verification": null,
+      "created_at": "2026-09-18T11:45:00Z",
+      "updated_at": "2026-09-18T12:30:00Z",
+      "lat": 6.6111,
+      "lng": 3.3888,
+      "location_text": "Mile 12 Market, Lagos",
+      "history": [
+        {
+          "status": "Signal",
+          "at": "2026-09-18T11:45:00Z",
+          "note": "Trader dispute reported via web form"
+        },
+        {
+          "status": "Corroborating",
+          "at": "2026-09-18T12:00:00Z",
+          "note": "Corroborated by market association observer"
+        },
+        {
+          "status": "Verified",
+          "at": "2026-09-18T12:10:00Z",
+          "note": "Confidence score set to 75/100"
+        },
+        {
+          "status": "Assigned",
+          "at": "2026-09-18T12:15:00Z",
+          "note": "Assigned to Mile 12 Market Mediation Council"
+        },
+        {
+          "status": "Accepted",
+          "at": "2026-09-18T12:30:00Z",
+          "note": "Mediator accepted SLA (2 hours)"
+        }
+      ]
+    },
+    {
+      "id": "RLA-1089",
+      "status": "Assigned",
+      "type": "Transparency",
+      "severity": "Medium",
+      "confidence_score": 65,
+      "responsible_actor": "Alimosho LGA Water & Public Works Board",
+      "sla": "48 hours",
+      "acknowledged_at": null,
+      "evidence": [
+        "Voice note reporting broken borehole for 2 weeks",
+        "Location tag at Ijegun Primary School"
+      ],
+      "independent_verification": null,
+      "created_at": "2026-09-18T14:10:00Z",
+      "updated_at": "2026-09-18T14:30:00Z",
+      "lat": 6.5333,
+      "lng": 3.2667,
+      "location_text": "Ijegun Primary School, Lagos",
+      "history": [
+        {
+          "status": "Signal",
+          "at": "2026-09-18T14:10:00Z",
+          "note": "Broken borehole reported via voice note"
+        },
+        {
+          "status": "Corroborating",
+          "at": "2026-09-18T14:20:00Z",
+          "note": "Corroborated by PTA member report"
+        },
+        {
+          "status": "Verified",
+          "at": "2026-09-18T14:25:00Z",
+          "note": "Confidence score calculated at 65/100"
+        },
+        {
+          "status": "Assigned",
+          "at": "2026-09-18T14:30:00Z",
+          "note": "Assigned to Alimosho LGA Water & Public Works Board"
+        }
+      ]
+    }
+  ]
+}
