@@ -293,7 +293,13 @@ function updateCase(id, caseData) {
 }
 
 /**
- * Find an active case within a time window matching type and location.
+ * Closed / terminal status list. Reports matching cases in these statuses must create a NEW case.
+ */
+const TERMINAL_STATUSES = ['Claimed Resolved', 'Independently Verified'];
+
+/**
+ * Find an active open case within a time window matching type and location.
+ * Must be open (closed === false) AND status before 'Claimed Resolved'.
  */
 function findMatchingCase(type, locationText, lat, lng, timeWindowMinutes = 60) {
   const all = getAllCases();
@@ -301,6 +307,11 @@ function findMatchingCase(type, locationText, lat, lng, timeWindowMinutes = 60) 
 
   return all.find(c => {
     if (c.type !== type) return false;
+
+    // Rule P1: Only corroborate cases that are still open (closed === false and status before Claimed Resolved)
+    if (c.closed || TERMINAL_STATUSES.includes(c.status)) {
+      return false;
+    }
 
     const createdAt = new Date(c.created_at);
     const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
@@ -320,6 +331,14 @@ function findMatchingCase(type, locationText, lat, lng, timeWindowMinutes = 60) 
 
     return false;
   });
+}
+
+/**
+ * Executes a callback inside a synchronous better-sqlite3 transaction.
+ */
+function runInTransaction(fn) {
+  const transaction = db.transaction(fn);
+  return transaction();
 }
 
 /**
@@ -354,5 +373,7 @@ module.exports = {
   findMatchingCase,
   getCaseById,
   getAllCases,
-  clearCases
+  clearCases,
+  runInTransaction,
+  TERMINAL_STATUSES
 };
