@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relay — Demo Control Panel</title>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <style>
+    .demo-container {
+      max-width: 960px;
+      margin: 24px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .demo-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .demo-key-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #f8fafc;
+      padding: 12px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+
+    .demo-key-bar label {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #0f172a;
+    }
+
+    .demo-key-bar input {
+      flex: 1;
+      min-width: 200px;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      min-height: 44px;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .btn-action {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: #ffffff;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+      min-height: 72px;
+    }
+
+    .btn-action:hover {
+      border-color: var(--primary-color);
+      background: #f0f9ff;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-action:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-color: var(--border-color);
+      background: #f1f5f9;
+    }
+
+    .btn-action .title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-action .desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .btn-run-all {
+      grid-column: 1 / -1;
+      background: #047857;
+      color: #ffffff;
+      border-color: #065f46;
+    }
+
+    .btn-run-all:hover {
+      background: #065f46;
+      color: #ffffff;
+    }
+
+    .btn-run-all .title {
+      color: #ffffff;
+    }
+
+    .btn-run-all .desc {
+      color: #a7f3d0;
+    }
+
+    .response-log {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      max-height: 380px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-entry {
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .log-status-200, .log-status-201 { color: #34d399; }
+    .log-status-error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="app-header" role="banner">
+    <div class="header-brand">
+      <i class="fa-solid fa-sliders brand-logo" aria-hidden="true"></i>
+      <div>
+        <h1 class="brand-title">RELAY</h1>
+        <span class="brand-subtitle">Demo Control Panel & Scripted Automation</span>
+      </div>
+    </div>
+    <div class="header-status">
+      <a href="/" style="color: #38bdf8; text-decoration: none; font-weight: bold;">
+        <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to Main App
+      </a>
+    </div>
+  </header>
+
+  <main class="demo-container">
+    <div class="demo-card">
+      <h2 style="font-size: 1.2rem; margin-bottom: 12px; color: #0f172a;">
+        <i class="fa-solid fa-key" aria-hidden="true"></i> Demo Authentication Header
+      </h2>
+      <div class="demo-key-bar">
+        <label for="demo-key-input">Header <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">x-demo-key</code>:</label>
+        <input type="password" id="demo-key-input" placeholder="Enter demo access key..." autocomplete="off">
+        <span style="font-size: 0.8rem; color: var(--text-muted);">(Kept in memory only)</span>
+      </div>
+    </div>
+
+    <div class="demo-card">
+      <h2 style="font-size: 1.2rem; margin-bottom: 4px; color: #0f172a;">
+        <i class="fa-solid fa-gamepad" aria-hidden="true"></i> Deep-Path Scenario Controls
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Triggers backend endpoints to demonstrate full case resolution lifecycle for video recording.
+      </p>
+
+      <div class="button-grid">
+        <button id="btn-seed" class="btn-action">
+          <span class="title"><i class="fa-solid fa-seedling" aria-hidden="true"></i> Seed Database</span>
+          <span class="desc">POST /api/demo/seed (Inserts Agege, Mile 12, Ijegun baseline cases)</span>
+        </button>
+
+        <button id="btn-reset" class="btn-action">
+          <span class="title"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset Database</span>
+          <span class="desc">POST /api/demo/reset (Clears all cases from memory/SQLite)</span>
+        </button>
+
+        <button id="btn-report-en" class="btn-action">
+          <span class="title"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> Submit English Report</span>
+          <span class="desc">POST /api/reports (Agege market armed men gathering signal)</span>
+        </button>
+
+        <button id="btn-report-pidgin" class="btn-action">
+          <span class="title"><i class="fa-solid fa-comments" aria-hidden="true"></i> Submit Pidgin Corroboration</span>
+          <span class="desc">POST /api/reports (Corroborating Agege Pidgin signal)</span>
+        </button>
+
+        <button id="btn-advance" class="btn-action">
+          <span class="title"><i class="fa-solid fa-forward-step" aria-hidden="true"></i> Advance Deep-Path Case</span>
+          <span class="desc">POST /api/cases/:id/advance (Moves case through Accepted → Claimed)</span>
+        </button>
+
+        <button id="btn-verify" class="btn-action">
+          <span class="title"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Third-Party Verification</span>
+          <span class="desc">POST /api/cases/:id/verify (Confirms resolution T+61 min)</span>
+        </button>
+
+        <button id="btn-run-full" class="btn-action btn-run-all">
+          <span class="title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Run Full Deep Path (Automated with Pauses)</span>
+          <span class="desc">Executes Seed → English → Pidgin → Advance ×2 → Verification with 2.5s pauses for video recording.</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="demo-card">
+      <h2 style="font-size: 1.1rem; margin-bottom: 8px; color: #0f172a; display: flex; justify-content: space-between; align-items: center;">
+        <span><i class="fa-solid fa-terminal" aria-hidden="true"></i> API Response Output</span>
+        <button id="btn-clear-log" class="btn btn-secondary btn-sm"><i class="fa-solid fa-trash"></i> Clear Log</button>
+      </h2>
+      <div id="response-log" class="response-log">Ready for demo actions...</div>
+    </div>
+  </main>
+
+  <script>
+    // Demo key stored strictly in JS memory variable
+    let demoKey = '';
+    let deepPathCaseId = null;
+
+    document.getElementById('demo-key-input').addEventListener('input', (e) => {
+      demoKey = e.target.value.trim();
+    });
+
+    const logEl = document.getElementById('response-log');
+
+    function appendLog(action, status, data) {
+      const timestamp = new Date().toLocaleTimeString();
+      const isSuccess = status >= 200 && status < 300;
+      const statusClass = isSuccess ? 'log-status-200' : 'log-status-error';
+
+      const entryHtml = `
+<div class="log-entry">
+  <div>[${timestamp}] <strong>${action}</strong> - <span class="${statusClass}">HTTP ${status}</span></div>
+  <pre style="margin-top:4px; font-size:0.8rem; color:#94a3b8;">${JSON.stringify(data, null, 2)}</pre>
+</div>`;
+
+      if (logEl.textContent === 'Ready for demo actions...') {
+        logEl.innerHTML = '';
+      }
+      logEl.innerHTML = entryHtml + logEl.innerHTML;
+    }
+
+    async function makeRequest(endpoint, method = 'POST', body = null) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (demoKey) {
+        headers['x-demo-key'] = demoKey;
+      }
+
+      try {
+        const opts = { method, headers };
+        if (body) opts.body = JSON.stringify(body);
+
+        const res = await fetch(endpoint, opts);
+        const data = await res.json().catch(() => ({ note: 'No JSON body returned' }));
+        appendLog(`${method} ${endpoint}`, res.status, data);
+
+        // Store active deep path case ID if returned
+        if (data && data.case && data.case.id) {
+          deepPathCaseId = data.case.id;
+        } else if (data && data.id) {
+          deepPathCaseId = data.id;
+        }
+
+        return { ok: res.ok, status: res.status, data };
+      } catch (err) {
+        appendLog(`${method} ${endpoint}`, 0, { error: err.message });
+        return { ok: false, status: 0, data: { error: err.message } };
+      }
+    }
+
+    // Button Listeners
+    document.getElementById('btn-clear-log').addEventListener('click', () => {
+      logEl.textContent = 'Ready for demo actions...';
+    });
+
+    document.getElementById('btn-seed').addEventListener('click', () => {
+      makeRequest('/api/demo/seed');
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      deepPathCaseId = null;
+      makeRequest('/api/demo/reset');
+    });
+
+    document.getElementById('btn-report-en').addEventListener('click', () => {
+      makeRequest('/api/reports', 'POST', {
+        text: 'There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early. This is happening right now.',
+        lat: 6.6212,
+        lng: 3.3262
+      });
+    });
+
+    document.getElementById('btn-report-pidgin').addEventListener('click', () => {
+      makeRequest('/api/reports', 'POST', {
+        text: 'Wetin dey happen for Agege market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot.',
+        lat: 6.6212,
+        lng: 3.3262
+      });
+    });
+
+    document.getElementById('btn-advance').addEventListener('click', async () => {
+      let targetId = deepPathCaseId;
+      if (!targetId) {
+        // Find latest case
+        const casesRes = await makeRequest('/api/cases', 'GET');
+        if (casesRes.ok && casesRes.data && casesRes.data.cases && casesRes.data.cases.length > 0) {
+          targetId = casesRes.data.cases[0].id;
+        }
+      }
+      if (!targetId) targetId = 'RLA-1001';
+      makeRequest(`/api/cases/${targetId}/advance`, 'POST', { minutes_elapsed: 15 });
+    });
+
+    document.getElementById('btn-verify').addEventListener('click', async () => {
+      let targetId = deepPathCaseId;
+      if (!targetId) {
+        const casesRes = await makeRequest('/api/cases', 'GET');
+        if (casesRes.ok && casesRes.data && casesRes.data.cases && casesRes.data.cases.length > 0) {
+          targetId = casesRes.data.cases[0].id;
+        }
+      }
+      if (!targetId) targetId = 'RLA-1001';
+      makeRequest(`/api/cases/${targetId}/verify`, 'POST', {
+        text: 'Confirmed by 3rd community member: area clear and calm, responders dispersed group without injuries.'
+      });
+    });
+
+    // Run Full Deep Path Script
+    document.getElementById('btn-run-full').addEventListener('click', async () => {
+      const runBtn = document.getElementById('btn-run-full');
+      runBtn.disabled = true;
+      const originalText = runBtn.innerHTML;
+      runBtn.innerHTML = '<span class="title"><i class="fa-solid fa-spinner fa-spin"></i> Running Full Deep Path...</span>';
+
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+      try {
+        appendLog('AUTOMATION START', 200, { step: '1/6: Resetting database' });
+        await makeRequest('/api/demo/reset');
+        await sleep(2500);
+
+        appendLog('AUTOMATION STEP 2', 200, { step: '2/6: Submitting English report' });
+        const enRes = await makeRequest('/api/reports', 'POST', {
+          text: 'There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early. This is happening right now.',
+          lat: 6.6212,
+          lng: 3.3262
+        });
+        const activeCaseId = (enRes.data && enRes.data.case && enRes.data.case.id) ? enRes.data.case.id : 'RLA-1001';
+        await sleep(2500);
+
+        appendLog('AUTOMATION STEP 3', 200, { step: '3/6: Submitting Pidgin corroboration' });
+        await makeRequest('/api/reports', 'POST', {
+          text: 'Wetin dey happen for Agege market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot.',
+          lat: 6.6212,
+          lng: 3.3262
+        });
+        await sleep(2500);
+
+        appendLog('AUTOMATION STEP 4', 200, { step: '4/6: Advancing case (In Progress)' });
+        await makeRequest(`/api/cases/${activeCaseId}/advance`, 'POST', { action: 'Patrol dispatched to Agege market entrance', minutes_elapsed: 25 });
+        await sleep(2500);
+
+        appendLog('AUTOMATION STEP 5', 200, { step: '5/6: Advancing case (Claimed Resolved)' });
+        await makeRequest(`/api/cases/${activeCaseId}/advance`, 'POST', { action: 'Responders dispersed the group, no injuries', minutes_elapsed: 35 });
+        await sleep(2500);
+
+        appendLog('AUTOMATION STEP 6', 200, { step: '6/6: Submitting third-party verification' });
+        await makeRequest(`/api/cases/${activeCaseId}/verify`, 'POST', {
+          text: 'Confirmed by 3rd community member: area clear and calm, responders dispersed group without injuries.'
+        });
+
+        appendLog('AUTOMATION COMPLETE', 200, { message: 'Deep path full lifecycle finished successfully!' });
+      } catch (err) {
+        appendLog('AUTOMATION ERROR', 0, { error: err.message });
+      } finally {
+        runBtn.disabled = false;
+        runBtn.innerHTML = originalText;
+      }
+    });
+  </script>
+</body>
+</html>
