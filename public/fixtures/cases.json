@@ -1,0 +1,150 @@
+[
+  {
+    "id": "RLA-1001",
+    "status": "Independently Verified",
+    "type": "Safety",
+    "severity": "High",
+    "urgency": "High",
+    "confidence_score": 95,
+    "responsible_actor": "Community security responder + local police PRO contact",
+    "sla": "30 minutes",
+    "acknowledged_at": "2026-09-18T10:15:00.000Z",
+    "evidence": [
+      "There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early. This is happening right now.",
+      "Wetin dey happen for Agege market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot."
+    ],
+    "independent_verification": "Confirmed by 3rd community member: area clear and calm, responders dispersed group without injuries.",
+    "raw_report": "There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early. This is happening right now.",
+    "lat": 6.6212,
+    "lng": 3.3262,
+    "location_text": "Agege market",
+    "transcript": null,
+    "created_at": "2026-09-18T10:00:00.000Z",
+    "updated_at": "2026-09-18T11:20:00.000Z",
+    "history": [
+      {
+        "status": "Signal",
+        "at": "2026-09-18T10:00:00.000Z",
+        "note": "Initial signal received"
+      },
+      {
+        "status": "Corroborating",
+        "at": "2026-09-18T10:08:00.000Z",
+        "note": "Corroborating Pidgin report received for Agege market"
+      },
+      {
+        "status": "Verified",
+        "at": "2026-09-18T10:10:00.000Z",
+        "note": "Confidence score (95) met verification threshold (>=60)"
+      },
+      {
+        "status": "Assigned",
+        "at": "2026-09-18T10:12:00.000Z",
+        "note": "Assigned to Community security responder + local police PRO contact with SLA 30 minutes"
+      },
+      {
+        "status": "Accepted",
+        "at": "2026-09-18T10:15:00.000Z",
+        "note": "Responder auto-accepted assignment"
+      },
+      {
+        "status": "In Progress",
+        "at": "2026-09-18T10:25:00.000Z",
+        "note": "Patrol dispatched to Agege market entrance"
+      },
+      {
+        "status": "Claimed Resolved",
+        "at": "2026-09-18T11:00:00.000Z",
+        "note": "Responders dispersed the group, no injuries"
+      },
+      {
+        "status": "Independently Verified",
+        "at": "2026-09-18T11:20:00.000Z",
+        "note": "Third community member confirms area is clear and calm"
+      }
+    ]
+  },
+  {
+    "id": "RLA-1002",
+    "status": "Accepted",
+    "type": "Stability",
+    "severity": "Medium",
+    "urgency": "Medium",
+    "confidence_score": 70,
+    "responsible_actor": "Trained volunteer / community mediator",
+    "sla": "2 hours",
+    "acknowledged_at": "2026-09-18T12:05:00.000Z",
+    "evidence": [
+      "Two traders are fighting over a stall space at Mile 12 market, it's getting loud and a crowd is forming."
+    ],
+    "independent_verification": null,
+    "raw_report": "Two traders are fighting over a stall space at Mile 12 market, it's getting loud and a crowd is forming.",
+    "lat": 6.6094,
+    "lng": 3.3881,
+    "location_text": "Mile 12 market",
+    "transcript": null,
+    "created_at": "2026-09-18T12:00:00.000Z",
+    "updated_at": "2026-09-18T12:05:00.000Z",
+    "history": [
+      {
+        "status": "Signal",
+        "at": "2026-09-18T12:00:00.000Z",
+        "note": "Initial signal received"
+      },
+      {
+        "status": "Verified",
+        "at": "2026-09-18T12:02:00.000Z",
+        "note": "Confidence score (70) met verification threshold (>=60)"
+      },
+      {
+        "status": "Assigned",
+        "at": "2026-09-18T12:03:00.000Z",
+        "note": "Assigned to Trained volunteer / community mediator with SLA 2 hours"
+      },
+      {
+        "status": "Accepted",
+        "at": "2026-09-18T12:05:00.000Z",
+        "note": "Community mediator auto-accepted assignment"
+      }
+    ]
+  },
+  {
+    "id": "RLA-1003",
+    "status": "Assigned",
+    "type": "Transparency",
+    "severity": "Medium",
+    "urgency": "Medium",
+    "confidence_score": 65,
+    "responsible_actor": "Local government infrastructure desk",
+    "sla": "48 hours",
+    "acknowledged_at": null,
+    "evidence": [
+      "The borehole at Ijegun primary school has been broken for two weeks, children have no water."
+    ],
+    "independent_verification": null,
+    "raw_report": "The borehole at Ijegun primary school has been broken for two weeks, children have no water.",
+    "lat": 6.5367,
+    "lng": 3.2573,
+    "location_text": "Ijegun primary school",
+    "transcript": null,
+    "created_at": "2026-09-18T14:00:00.000Z",
+    "updated_at": "2026-09-18T14:05:00.000Z",
+    "history": [
+      {
+        "status": "Signal",
+        "at": "2026-09-18T14:00:00.000Z",
+        "note": "Initial signal received"
+      },
+      {
+        "status": "Verified",
+        "at": "2026-09-18T14:03:00.000Z",
+        "note": "Confidence score (65) met verification threshold (>=60)"
+      },
+      {
+        "status": "Assigned",
+        "at": "2026-09-18T14:05:00.000Z",
+        "note": "Assigned to Local government infrastructure desk with SLA 48 hours"
+      }
+    ]
+  }
+]
