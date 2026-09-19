@@ -159,7 +159,9 @@ async function processIncomingMessage(message) {
   const intakeResult = await processReportIntake({
     text: reportText,
     isVoice,
-    transcript
+    transcript,
+    reporter: from,
+    notifyTo: from
   });
 
   const receiptBody = buildReceiptText(intakeResult);

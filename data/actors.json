@@ -2,47 +2,56 @@
   "Safety": {
     "High": {
       "responsible_actor": "Community security responder + local police PRO contact",
-      "sla": "30 minutes"
+      "sla": "30 minutes",
+      "simulated_ack_minutes": 22
     },
     "Medium": {
       "responsible_actor": "Community security responder",
-      "sla": "2 hours"
+      "sla": "2 hours",
+      "simulated_ack_minutes": 15
     },
     "Low": {
       "responsible_actor": "Local neighborhood watch",
-      "sla": "12 hours"
+      "sla": "12 hours",
+      "simulated_ack_minutes": 60
     }
   },
   "Stability": {
     "High": {
       "responsible_actor": "Local peace taskforce + district mediator",
-      "sla": "2 hours"
+      "sla": "2 hours",
+      "simulated_ack_minutes": 30
     },
     "Medium": {
       "responsible_actor": "Trained community mediator",
       "sla": "24 hours",
+      "simulated_ack_minutes": 45,
       "demo_route": true,
       "stop_status": "Accepted"
     },
     "Low": {
       "responsible_actor": "Market association peace committee",
-      "sla": "48 hours"
+      "sla": "48 hours",
+      "simulated_ack_minutes": 90
     }
   },
   "Transparency": {
     "High": {
       "responsible_actor": "State anti-corruption & public works taskforce",
-      "sla": "24 hours"
+      "sla": "24 hours",
+      "simulated_ack_minutes": 60
     },
     "Medium": {
       "responsible_actor": "Local government works officer",
       "sla": "72 hours",
+      "simulated_ack_minutes": 120,
       "demo_route": true,
       "stop_status": "Assigned"
     },
     "Low": {
       "responsible_actor": "Local government desk officer",
-      "sla": "7 days"
+      "sla": "7 days",
+      "simulated_ack_minutes": 1440
     }
   }
 }
