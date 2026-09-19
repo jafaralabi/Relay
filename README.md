@@ -226,6 +226,9 @@ app itself does when it classifies a report or transcribes a voice note.
 - Whisper's Pidgin transcripts are imperfect.
 - The confidence score is a transparent heuristic, not a validated model.
 - The free-tier model limits how many reports can be processed per minute.
+- README additions (by hand, on GitHub)
+- Anonymous web reports cannot prove independence; WhatsApp reports are distinguished by hashed sender. Identical resubmissions are not counted twice.
+- Whisper's Pidgin transcripts are imperfect and can misread short function words (for example 'don' as 'don't'). The transcript is stored on the case so a human can check it.
 
 ## Demo
 
