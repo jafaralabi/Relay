@@ -41,7 +41,16 @@ const newColumns = [
   { name: 'location_text', type: 'TEXT DEFAULT NULL' },
   { name: 'transcript', type: 'TEXT DEFAULT NULL' },
   { name: 'classified_by', type: "TEXT DEFAULT 'llm'" },
-  { name: 'history', type: "TEXT DEFAULT '[]'" }
+  { name: 'history', type: "TEXT DEFAULT '[]'" },
+  { name: 'action', type: 'TEXT DEFAULT NULL' },
+  { name: 'acknowledged_after_minutes', type: 'REAL DEFAULT NULL' },
+  { name: 'ack_simulated', type: 'INTEGER DEFAULT 0' },
+  { name: 'resolution', type: "TEXT DEFAULT 'Pending'" },
+  { name: 'closed', type: 'INTEGER DEFAULT 0' },
+  { name: 'demo_scripted', type: 'INTEGER DEFAULT 0' },
+  { name: 'demo_seed', type: 'INTEGER DEFAULT 0' },
+  { name: 'reporter_hash', type: 'TEXT DEFAULT NULL' },
+  { name: 'notify_to', type: 'TEXT DEFAULT NULL' }
 ];
 
 for (const col of newColumns) {
@@ -51,15 +60,35 @@ for (const col of newColumns) {
 }
 
 function generateCaseId() {
-  const num = Math.floor(1000 + Math.random() * 9000);
-  return `RLA-${num}`;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const num = Math.floor(1000 + Math.random() * 9000);
+    const candidate = `RLA-${num}`;
+    const row = db.prepare('SELECT id FROM cases WHERE id = ?').get(candidate);
+    if (!row) return candidate;
+  }
+  return `RLA-${Date.now().toString().slice(-4)}`;
 }
 
 /**
  * Format a database row into a JS case object matching schema.
+ * Note: Never returns reporter_hash or notify_to or phone numbers.
+ * Lat/Lng are rounded to 3 decimal places (~100m accuracy).
  */
 function rowToCase(row) {
   if (!row) return null;
+
+  const round3 = num => (num !== null && num !== undefined) ? Math.round(Number(num) * 1000) / 1000 : null;
+
+  const safeParseJson = (val, fallback) => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val !== 'string') return val;
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      return fallback;
+    }
+  };
+
   return {
     id: row.id,
     status: row.status,
@@ -70,15 +99,22 @@ function rowToCase(row) {
     responsible_actor: row.responsible_actor,
     sla: row.sla,
     acknowledged_at: row.acknowledged_at,
-    evidence: JSON.parse(row.evidence || '[]'),
-    independent_verification: row.independent_verification ? JSON.parse(row.independent_verification) : null,
+    action: row.action || null,
+    acknowledged_after_minutes: row.acknowledged_after_minutes !== null && row.acknowledged_after_minutes !== undefined ? Number(row.acknowledged_after_minutes) : null,
+    ack_simulated: Boolean(row.ack_simulated),
+    resolution: row.resolution || 'Pending',
+    closed: Boolean(row.closed),
+    demo_scripted: Boolean(row.demo_scripted),
+    demo_seed: Boolean(row.demo_seed),
+    evidence: safeParseJson(row.evidence, []),
+    independent_verification: safeParseJson(row.independent_verification, null),
     raw_report: row.raw_report,
-    lat: row.lat !== undefined ? row.lat : null,
-    lng: row.lng !== undefined ? row.lng : null,
+    lat: round3(row.lat),
+    lng: round3(row.lng),
     location_text: row.location_text || null,
     transcript: row.transcript || null,
     classified_by: row.classified_by || 'llm',
-    history: row.history ? JSON.parse(row.history) : [],
+    history: safeParseJson(row.history, []),
     created_at: row.created_at,
     updated_at: row.updated_at
   };
@@ -106,6 +142,15 @@ function createCase(caseData) {
     responsible_actor: caseData.responsible_actor || 'Unassigned',
     sla: caseData.sla || '24 hours',
     acknowledged_at: caseData.acknowledged_at || null,
+    action: caseData.action || null,
+    acknowledged_after_minutes: caseData.acknowledged_after_minutes !== undefined ? caseData.acknowledged_after_minutes : null,
+    ack_simulated: caseData.ack_simulated ? 1 : 0,
+    resolution: caseData.resolution || 'Pending',
+    closed: caseData.closed ? 1 : 0,
+    demo_scripted: caseData.demo_scripted ? 1 : 0,
+    demo_seed: caseData.demo_seed ? 1 : 0,
+    reporter_hash: caseData.reporter_hash || null,
+    notify_to: caseData.notify_to || null,
     evidence: Array.isArray(caseData.evidence) ? caseData.evidence : (caseData.raw_report ? [caseData.raw_report] : []),
     independent_verification: caseData.independent_verification || null,
     raw_report: caseData.raw_report || '',
@@ -122,11 +167,13 @@ function createCase(caseData) {
   const stmt = db.prepare(`
     INSERT INTO cases (
       id, status, type, severity, urgency, confidence_score,
-      responsible_actor, sla, acknowledged_at, evidence,
-      independent_verification, raw_report, lat, lng, location_text,
-      transcript, classified_by, history, created_at, updated_at
+      responsible_actor, sla, acknowledged_at, action, acknowledged_after_minutes,
+      ack_simulated, resolution, closed, demo_scripted, demo_seed,
+      reporter_hash, notify_to, evidence, independent_verification,
+      raw_report, lat, lng, location_text, transcript, classified_by, history,
+      created_at, updated_at
     ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
     )
   `);
 
@@ -140,6 +187,15 @@ function createCase(caseData) {
     caseRecord.responsible_actor,
     caseRecord.sla,
     caseRecord.acknowledged_at,
+    caseRecord.action,
+    caseRecord.acknowledged_after_minutes,
+    caseRecord.ack_simulated,
+    caseRecord.resolution,
+    caseRecord.closed,
+    caseRecord.demo_scripted,
+    caseRecord.demo_seed,
+    caseRecord.reporter_hash,
+    caseRecord.notify_to,
     JSON.stringify(caseRecord.evidence),
     caseRecord.independent_verification ? JSON.stringify(caseRecord.independent_verification) : null,
     caseRecord.raw_report,
@@ -153,19 +209,19 @@ function createCase(caseData) {
     caseRecord.updated_at
   );
 
-  return caseRecord;
+  return rowToCase(caseRecord);
 }
 
 /**
  * Update an existing case record.
  */
 function updateCase(id, caseData) {
-  const existing = getCaseById(id);
-  if (!existing) return null;
+  const existingRow = db.prepare('SELECT * FROM cases WHERE id = ?').get(id);
+  if (!existingRow) return null;
 
   const now = new Date().toISOString();
   const updatedRecord = {
-    ...existing,
+    ...existingRow,
     ...caseData,
     updated_at: now
   };
@@ -180,6 +236,15 @@ function updateCase(id, caseData) {
       responsible_actor = ?,
       sla = ?,
       acknowledged_at = ?,
+      action = ?,
+      acknowledged_after_minutes = ?,
+      ack_simulated = ?,
+      resolution = ?,
+      closed = ?,
+      demo_scripted = ?,
+      demo_seed = ?,
+      reporter_hash = ?,
+      notify_to = ?,
       evidence = ?,
       independent_verification = ?,
       raw_report = ?,
@@ -202,20 +267,29 @@ function updateCase(id, caseData) {
     updatedRecord.responsible_actor,
     updatedRecord.sla,
     updatedRecord.acknowledged_at,
-    JSON.stringify(updatedRecord.evidence),
-    updatedRecord.independent_verification ? JSON.stringify(updatedRecord.independent_verification) : null,
+    updatedRecord.action,
+    updatedRecord.acknowledged_after_minutes,
+    updatedRecord.ack_simulated ? 1 : 0,
+    updatedRecord.resolution,
+    updatedRecord.closed ? 1 : 0,
+    updatedRecord.demo_scripted ? 1 : 0,
+    updatedRecord.demo_seed ? 1 : 0,
+    updatedRecord.reporter_hash || null,
+    updatedRecord.notify_to || null,
+    typeof updatedRecord.evidence === 'string' ? updatedRecord.evidence : JSON.stringify(updatedRecord.evidence),
+    typeof updatedRecord.independent_verification === 'string' ? updatedRecord.independent_verification : (updatedRecord.independent_verification ? JSON.stringify(updatedRecord.independent_verification) : null),
     updatedRecord.raw_report,
     updatedRecord.lat,
     updatedRecord.lng,
     updatedRecord.location_text,
     updatedRecord.transcript,
     updatedRecord.classified_by,
-    JSON.stringify(updatedRecord.history),
+    typeof updatedRecord.history === 'string' ? updatedRecord.history : JSON.stringify(updatedRecord.history),
     updatedRecord.updated_at,
     id
   );
 
-  return updatedRecord;
+  return getCaseById(id);
 }
 
 /**

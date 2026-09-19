@@ -25,19 +25,22 @@ function getHttp(port, path) {
 }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function postJson(port, path, body) {
+function postJson(port, path, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(body);
+    const reqHeaders = {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(postData),
+      ...headers
+    };
+
     const req = http.request(
       {
         hostname: 'localhost',
         port: port,
         path: path,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        }
+        headers: reqHeaders
       },
       res => {
         let data = '';
@@ -384,6 +387,199 @@ async function runVerification() {
       expected: 'Status 200 EVENT_RECEIVED & case processed in background',
       actual: `Status ${resWaMessage.statusCode}, total cases in DB: ${casesAfterWa.length}`,
       passed: testWaMessagePassed
+    });
+
+    // Scenario D1 (a): Seed produces three final states with no Groq call
+    console.log(`\n[D1-a] Testing POST /api/demo/seed...`);
+    const demoKey = process.env.DEMO_KEY || 'relay_demo_secret_key_2026';
+    const seedRes = await postJson(port, '/api/demo/seed', {}, { 'x-demo-key': demoKey });
+    const seedCases = seedRes.body.cases || [];
+
+    const agegeSeed = seedCases.find(c => c.id === 'RLA-1001');
+    const mile12Seed = seedCases.find(c => c.id === 'RLA-1002');
+    const ijegunSeed = seedCases.find(c => c.id === 'RLA-1003');
+
+    const testSeedPassed = Boolean(
+      seedRes.statusCode === 200 &&
+      seedCases.length === 3 &&
+      agegeSeed && agegeSeed.status === 'Independently Verified' && agegeSeed.closed === true && agegeSeed.acknowledged_after_minutes === 22 &&
+      mile12Seed && mile12Seed.status === 'Accepted' && mile12Seed.demo_scripted === true &&
+      ijegunSeed && ijegunSeed.status === 'Assigned' && ijegunSeed.demo_scripted === true
+    );
+
+    results.push({
+      scenario: 'D1(a) Demo Seed Verification',
+      expected: '3 seeded cases: Agege (Independently Verified), Mile 12 (Accepted), Ijegun (Assigned)',
+      actual: `Status: ${seedRes.statusCode}, Case count: ${seedCases.length}`,
+      passed: testSeedPassed
+    });
+
+    // Scenario D1 (b): Live deep path ends Independently Verified
+    console.log(`\n[D1-b] Testing Live Deep Path end-to-end status flow...`);
+    clearCases();
+    await sleep(1000);
+
+    const reportDeep1 = "There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early. This is happening right now.";
+    const reportDeep2 = "Wetin dey happen for Agege market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot.";
+
+    const resDeep1 = await postJson(port, '/api/reports', { text: reportDeep1, reporter: '+2348011110000' });
+    const caseDeep1 = resDeep1.body.case;
+
+    await sleep(1000);
+    const resDeep2 = await postJson(port, '/api/reports', { text: reportDeep2, reporter: '+2348022220000' });
+    const caseDeep2 = resDeep2.body.case;
+
+    const resAdv1 = await postJson(port, `/api/cases/${caseDeep2.id}/advance`, { action: 'Responders on site' }, { 'x-demo-key': demoKey });
+    const resAdv2 = await postJson(port, `/api/cases/${caseDeep2.id}/advance`, { action: 'Responders dispersed the group, no injuries' }, { 'x-demo-key': demoKey });
+
+    const resVerify = await postJson(port, `/api/cases/${caseDeep2.id}/verify`, { text: 'The area is calm now, shops have reopened', reporter: '+2348033330000' }, { 'x-demo-key': demoKey });
+    const finalDeepCase = resVerify.body.case;
+
+    const testDeepPathPassed = Boolean(
+      caseDeep1.status === 'Signal' &&
+      caseDeep2.status === 'Accepted' &&
+      resAdv1.body.case.status === 'In Progress' &&
+      resAdv2.body.case.status === 'Claimed Resolved' &&
+      resVerify.body.confirmed === true &&
+      finalDeepCase.status === 'Independently Verified' &&
+      finalDeepCase.closed === true &&
+      finalDeepCase.resolution === 'Independently Verified' &&
+      finalDeepCase.acknowledged_after_minutes === 22
+    );
+
+    results.push({
+      scenario: 'D1(b) Live Deep Path End-to-End Flow',
+      expected: 'Signal -> Accepted -> In Progress -> Claimed Resolved -> Independently Verified (closed: true, resolution: "Independently Verified")',
+      actual: finalDeepCase ? `Final status: ${finalDeepCase.status}, closed: ${finalDeepCase.closed}, resolution: ${finalDeepCase.resolution}, ack_minutes: ${finalDeepCase.acknowledged_after_minutes}` : 'Failed',
+      passed: testDeepPathPassed
+    });
+
+    // Scenario D1 (c): Advancing Mile 12 or Ijegun returns 409
+    console.log(`\n[D1-c] Testing 409 guard when advancing demo_scripted cases...`);
+    postJson(port, '/api/demo/seed', {}, { 'x-demo-key': demoKey });
+    const resAdvMile12 = await postJson(port, '/api/cases/RLA-1002/advance', {}, { 'x-demo-key': demoKey });
+    const resAdvIjegun = await postJson(port, '/api/cases/RLA-1003/advance', {}, { 'x-demo-key': demoKey });
+
+    const testDemoScriptedGuardPassed = Boolean(
+      resAdvMile12.statusCode === 409 &&
+      resAdvIjegun.statusCode === 409
+    );
+
+    results.push({
+      scenario: 'D1(c) Demo Scripted Case Guard (409)',
+      expected: 'HTTP 409 for advancing Mile 12 or Ijegun',
+      actual: `Mile 12 code: ${resAdvMile12.statusCode}, Ijegun code: ${resAdvIjegun.statusCode}`,
+      passed: testDemoScriptedGuardPassed
+    });
+
+    // Scenario D1 (d): Double advance or verify before Claimed Resolved returns 409
+    console.log(`\n[D1-d] Testing 409 guards on invalid transitions...`);
+    clearCases();
+    const resLoneForGuard = await postJson(port, '/api/reports', { text: "Group gathering near Agege market entrance" });
+    const loneCaseGuard = resLoneForGuard.body.case;
+
+    const resVerifyEarly = await postJson(port, `/api/cases/${loneCaseGuard.id}/verify`, { text: "Area is calm" }, { 'x-demo-key': demoKey });
+    const resAdvEarly = await postJson(port, `/api/cases/${loneCaseGuard.id}/advance`, {}, { 'x-demo-key': demoKey });
+
+    const testInvalidTransitionsPassed = Boolean(
+      resVerifyEarly.statusCode === 409 &&
+      resAdvEarly.statusCode === 409
+    );
+
+    results.push({
+      scenario: 'D1(d) Invalid Transition Guards (409)',
+      expected: 'HTTP 409 for verifying before Claimed Resolved or advancing from Signal',
+      actual: `Verify early code: ${resVerifyEarly.statusCode}, Advance early code: ${resAdvEarly.statusCode}`,
+      passed: testInvalidTransitionsPassed
+    });
+
+    // Scenario D1 (e): Verify by original reporter rejected with 409
+    console.log(`\n[D1-e] Testing verification rejection when reporter matches original reporter...`);
+    await postJson(port, '/api/demo/reset', {}, { 'x-demo-key': demoKey });
+    const origReporterId = '+2348011119999';
+    await postJson(port, '/api/reports', { text: "There is a group of armed men gathering near the Agege market entrance, by the bus stop. People are scared and shops are closing early.", reporter: origReporterId });
+    const resCorrob = await postJson(port, '/api/reports', { text: "Wetin dey happen for Agege market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot.", reporter: '+2348022228888' });
+    const targetCaseForSameVerify = resCorrob.body.case;
+
+    let resSameReporterVerify = { statusCode: 500, body: {} };
+    if (targetCaseForSameVerify) {
+      await postJson(port, `/api/cases/${targetCaseForSameVerify.id}/advance`, { action: 'Responders on site' }, { 'x-demo-key': demoKey });
+      await postJson(port, `/api/cases/${targetCaseForSameVerify.id}/advance`, { action: 'Responders dispersed group' }, { 'x-demo-key': demoKey });
+
+      resSameReporterVerify = await postJson(port, `/api/cases/${targetCaseForSameVerify.id}/verify`, { text: 'The area is calm now, shops reopened', reporter: origReporterId }, { 'x-demo-key': demoKey });
+    }
+
+    const testSameReporterVerifyPassed = Boolean(
+      resSameReporterVerify.statusCode === 409
+    );
+
+    results.push({
+      scenario: 'D1(e) Same Reporter Verification Rejection Guard (409)',
+      expected: 'HTTP 409 when original reporter tries to verify resolution',
+      actual: `Status code: ${resSameReporterVerify.statusCode}, body: ${JSON.stringify(resSameReporterVerify.body)}`,
+      passed: testSameReporterVerifyPassed
+    });
+
+    // Scenario D1 (f): 401 without demo key in production mode
+    console.log(`\n[D1-f] Testing 401 protection when DEMO_KEY missing in NODE_ENV=production...`);
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+
+    const resUnauthSeed = await postJson(port, '/api/demo/seed', {});
+    process.env.NODE_ENV = origEnv;
+
+    const testDemoKeyAuthPassed = Boolean(
+      resUnauthSeed.statusCode === 401
+    );
+
+    results.push({
+      scenario: 'D1(f) Demo Key Protection in Production (401)',
+      expected: 'HTTP 401 when DEMO_KEY missing in production',
+      actual: `Status code: ${resUnauthSeed.statusCode}`,
+      passed: testDemoKeyAuthPassed
+    });
+
+    // Scenario D1 (g): Privacy check - no phone numbers or reporter_hash in /api/cases
+    console.log(`\n[D1-g] Testing privacy check on GET /api/cases...`);
+    const resGetCases = await getHttp(port, '/api/cases');
+    const jsonStr = resGetCases.body;
+
+    const hasReporterHash = jsonStr.includes('reporter_hash');
+    const hasNotifyTo = jsonStr.includes('notify_to');
+    const phonePattern = /\+?234[0-9]{10}/;
+    const hasPhonePattern = phonePattern.test(jsonStr);
+
+    const testPrivacyPassed = Boolean(
+      !hasReporterHash &&
+      !hasNotifyTo &&
+      !hasPhonePattern
+    );
+
+    results.push({
+      scenario: 'D1(g) Privacy Check (No PII / hashes in GET /api/cases)',
+      expected: 'No reporter_hash, notify_to, or phone number strings in JSON response',
+      actual: `reporter_hash present: ${hasReporterHash}, notify_to present: ${hasNotifyTo}, phone pattern match: ${hasPhonePattern}`,
+      passed: testPrivacyPassed
+    });
+
+    // Scenario D1 (h): Intake rate limit check (10 reports/IP/10min -> 429)
+    console.log(`\n[D1-h] Testing public intake rate limiter (429)...`);
+    clearCases();
+    let lastIntakeStatus = 200;
+    for (let i = 0; i < 11; i++) {
+      const r = await postJson(port, '/api/reports', { text: `Test report message rate limit ${i}` });
+      lastIntakeStatus = r.statusCode;
+    }
+
+    const testRateLimitPassed = Boolean(
+      lastIntakeStatus === 429
+    );
+
+    results.push({
+      scenario: 'D1(h) Public Intake Rate Limiter (429)',
+      expected: 'HTTP 429 on 11th report from same IP',
+      actual: `Status code on 11th request: ${lastIntakeStatus}`,
+      passed: testRateLimitPassed
     });
 
     // Output Pass/Fail Summary Table
