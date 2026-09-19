@@ -16,62 +16,53 @@
 </head>
 <body>
   <!-- Top Navigation Header -->
-  <header class="app-header" role="banner">
+  <header class="app-header">
     <div class="header-brand">
-      <i class="fa-solid fa-shield-halved brand-logo" aria-hidden="true"></i>
+      <i class="fa-solid fa-shield-halved brand-logo"></i>
       <div>
         <h1 class="brand-title">RELAY</h1>
-        <span class="brand-subtitle">Trusted community signals → accountable action</span>
+        <span class="brand-subtitle">Public Verification & Accountability Engine</span>
       </div>
     </div>
-    <div class="header-status" role="status" aria-label="System status">
-      <span class="status-indicator live-pulse" aria-hidden="true"></span>
-      <span id="sample-data-badge" class="sample-badge hidden">Sample Data</span>
-      <span id="live-sync-text">Live Sync Enabled</span>
+    <div class="header-status">
+      <span class="status-indicator live-pulse"></span> Live Sync Enabled
     </div>
   </header>
 
-  <div id="error-banner" class="error-banner hidden" role="alert" aria-live="assertive">
-    <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-    <span>Cannot reach the server — retrying</span>
-  </div>
-
-  <main class="app-container" id="main-content">
+  <main class="app-container">
     <!-- Top Intake / Report Form Section -->
-    <section class="intake-section" aria-labelledby="intake-heading">
+    <section class="intake-section">
       <div class="card intake-card">
         <div class="card-header">
-          <h2 id="intake-heading"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> Submit Incident Signal</h2>
-          <span class="badge badge-outline"><i class="fa-solid fa-microphone" aria-hidden="true"></i> Voice-First Intake</span>
+          <h2><i class="fa-solid fa-bullhorn"></i> Submit Incident Signal</h2>
+          <span class="badge badge-outline">Voice-First Intake Available</span>
         </div>
         <form id="report-form" class="intake-form">
           <div class="form-row">
             <div class="form-group flex-2">
-              <label for="report-text">Incident Description / Text Signal <span class="required-asterisk">*</span></label>
+              <label for="report-text">Incident Description / Text Signal</label>
               <textarea id="report-text" name="text" rows="2" placeholder="Describe what is happening, where, and when (e.g. 'Group gathering at Agege market entrance')..." required></textarea>
             </div>
             <div class="form-group flex-1">
-              <label for="report-audio"><i class="fa-solid fa-microphone" aria-hidden="true"></i> Optional Voice File</label>
-              <input type="file" id="report-audio" name="audio" accept="audio/*" aria-describedby="audio-hint">
-              <span id="audio-hint" class="form-hint">Transcribed automatically via Whisper V3</span>
+              <label for="report-audio"><i class="fa-solid fa-microphone"></i> Optional Voice File</label>
+              <input type="file" id="report-audio" name="audio" accept="audio/*">
+              <span class="form-hint">Transcribed automatically via Whisper V3</span>
             </div>
           </div>
 
           <div class="form-footer">
             <div class="location-inputs">
-              <label for="report-lat" class="sr-only">Latitude</label>
-              <input type="number" step="any" id="report-lat" placeholder="Lat" aria-label="Latitude">
-              <label for="report-lng" class="sr-only">Longitude</label>
-              <input type="number" step="any" id="report-lng" placeholder="Lng" aria-label="Longitude">
+              <input type="number" step="any" id="report-lat" placeholder="Lat (optional)">
+              <input type="number" step="any" id="report-lng" placeholder="Lng (optional)">
               <button type="button" id="use-location-btn" class="btn btn-secondary btn-sm">
-                <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> Get GPS
+                <i class="fa-solid fa-location-crosshairs"></i> Get GPS
               </button>
             </div>
             <button type="submit" id="submit-report-btn" class="btn btn-primary">
-              <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit Incident
+              <i class="fa-solid fa-paper-plane"></i> Submit Incident
             </button>
           </div>
-          <div id="form-feedback" class="form-feedback hidden" role="status" aria-live="polite"></div>
+          <div id="form-feedback" class="form-feedback hidden"></div>
         </form>
       </div>
     </section>
@@ -79,53 +70,52 @@
     <!-- Main Content Area: Feed, Map, Trust Receipt -->
     <section class="workspace-grid">
       <!-- Left Panel: Case Feed -->
-      <aside class="feed-panel card" aria-labelledby="feed-heading">
+      <aside class="feed-panel card">
         <div class="panel-header">
-          <h3 id="feed-heading"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Incident Feed</h3>
-          <span id="case-count-badge" class="badge badge-count" aria-live="polite">0 Cases</span>
+          <h3><i class="fa-solid fa-list-check"></i> Incident Feed</h3>
+          <span id="case-count-badge" class="badge badge-count">0 Cases</span>
         </div>
 
         <div class="filter-bar">
-          <label for="feed-search" class="sr-only">Filter cases by location or type</label>
-          <input type="text" id="feed-search" placeholder="Filter cases by location, type..." class="search-input" aria-label="Filter cases by location, type">
+          <input type="text" id="feed-search" placeholder="Filter cases by location, type..." class="search-input">
         </div>
 
-        <div id="case-feed-list" class="case-feed-list" role="region" aria-live="polite" aria-label="Incident Cases Feed">
+        <div id="case-feed-list" class="case-feed-list">
           <div class="loading-state">Loading cases...</div>
         </div>
       </aside>
 
       <!-- Center Panel: Status-Aware Map -->
-      <div class="map-panel card" aria-labelledby="map-heading">
-        <div class="panel-header map-panel-header">
-          <h3 id="map-heading"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i> Live Status Map</h3>
-          <div class="map-legend" role="region" aria-label="Map status color legend">
-            <span class="legend-item"><span class="dot dot-grey" aria-hidden="true"></span><i class="fa-solid fa-circle-dot" aria-hidden="true"></i> Signal/Corrob.</span>
-            <span class="legend-item"><span class="dot dot-amber" aria-hidden="true"></span><i class="fa-solid fa-clock" aria-hidden="true"></i> Verified/Assigned</span>
-            <span class="legend-item"><span class="dot dot-blue" aria-hidden="true"></span><i class="fa-solid fa-user-gear" aria-hidden="true"></i> Accepted/In Prog.</span>
-            <span class="legend-item"><span class="dot dot-green" aria-hidden="true"></span><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Verified Res.</span>
+      <div class="map-panel card">
+        <div class="panel-header">
+          <h3><i class="fa-solid fa-map-location-dot"></i> Live Status Map</h3>
+          <div class="map-legend">
+            <span class="legend-item"><span class="dot dot-grey"></span> Signal/Corroborating</span>
+            <span class="legend-item"><span class="dot dot-amber"></span> Verified/Assigned</span>
+            <span class="legend-item"><span class="dot dot-blue"></span> Accepted/In Progress</span>
+            <span class="legend-item"><span class="dot dot-green"></span> Verified Resolution</span>
           </div>
         </div>
-        <div id="map" class="map-container" tabIndex="0" aria-label="Interactive map showing incident locations"></div>
+        <div id="map" class="map-container"></div>
       </div>
 
       <!-- Right Panel: Trust Receipt -->
-      <aside class="receipt-panel card" id="receipt-container" aria-labelledby="receipt-heading">
+      <aside class="receipt-panel card" id="receipt-container">
         <div class="loading-state">Select a case to view its Trust Receipt.</div>
       </aside>
     </section>
   </main>
 
   <!-- Footer -->
-  <footer class="app-footer" role="contentinfo">
+  <footer class="app-footer">
     <p class="footer-note">
-      <i class="fa-solid fa-universal-access" aria-hidden="true"></i> Voice-first intake = literacy accommodation. Language-agnostic pipeline (English + Pidgin today; French/Arabic/Portuguese roadmap).
+      <i class="fa-solid fa-universal-access"></i> Voice-first intake = literacy accommodation. Language-agnostic pipeline (English + Pidgin today; French/Arabic/Portuguese roadmap).
     </p>
   </footer>
 
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- Application JS -->
-  <script src="js/app.js" defer></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
