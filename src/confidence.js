@@ -53,7 +53,8 @@ function calculateConfidenceScore({
     return Math.min(45, score);
   }
 
-  return score;
+  // Unverified multi-report case must never exceed 95
+  return Math.min(95, score);
 }
 
 module.exports = {

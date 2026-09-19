@@ -4,7 +4,7 @@ const GROQ_TRANSCRIPTION_URL = 'https://api.groq.com/openai/v1/audio/transcripti
 
 const DEFAULT_WHISPER_PROMPT = 'Nigerian Pidgin English. Common words: wetin, dey, na, di, wey, comot, abeg, pikin, oga, no wahala. Lagos places: Agege market, Mile 12 market, Ijegun, Oshodi, Ikorodu.';
 
-async function singleTranscribeCall(audioBuffer, filename, mimetype) {
+async function singleTranscribeCall(audioBuffer, filename, mimetype, timeoutMs = 12000) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new Error('GROQ_API_KEY missing in environment.');
@@ -21,39 +21,63 @@ async function singleTranscribeCall(audioBuffer, filename, mimetype) {
   formData.append('language', 'en');
   formData.append('prompt', prompt);
 
-  const response = await fetch(GROQ_TRANSCRIPTION_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: formData
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Groq Whisper API status ${response.status}: ${errText}`);
+  try {
+    const response = await fetch(GROQ_TRANSCRIPTION_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: formData,
+      signal: controller.signal
+    });
+
+    clearTimeout(timer);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Groq Whisper API status ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    if (!data || !data.text || !data.text.trim()) {
+      throw new Error('Groq Whisper API returned empty transcription text.');
+    }
+
+    return data.text.trim();
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      throw new Error(`Groq Whisper transcription call timed out after ${timeoutMs}ms`);
+    }
+    throw err;
   }
-
-  const data = await response.json();
-  if (!data || !data.text || !data.text.trim()) {
-    throw new Error('Groq Whisper API returned empty transcription text.');
-  }
-
-  return data.text.trim();
 }
 
 /**
  * Transcribe audio with retry once on empty/failure.
+ * Enforces an overall deadline of 25 seconds and per-call timeout of 12 seconds.
  * Returns { text, transcribedBy } or throws Error.
  */
 async function transcribeAudio(audioBuffer, filename = 'voice_report.mp3', mimetype = 'audio/mp3') {
   const demoMode = process.env.DEMO_MODE === 'true';
 
+  const perCallTimeoutMs = parseInt(process.env.STT_PER_CALL_TIMEOUT_MS || '12000', 10);
+  const overallTimeoutMs = parseInt(process.env.STT_OVERALL_TIMEOUT_MS || '25000', 10);
+  const startTime = Date.now();
+
   let lastError = null;
   // Retry once (2 attempts total)
   for (let attempt = 1; attempt <= 2; attempt++) {
+    if (Date.now() - startTime >= overallTimeoutMs) {
+      console.warn(`[Voice Transcribe] Overall timeout of ${overallTimeoutMs}ms reached before attempt ${attempt}`);
+      break;
+    }
+
     try {
-      const text = await singleTranscribeCall(audioBuffer, filename, mimetype);
+      const text = await singleTranscribeCall(audioBuffer, filename, mimetype, perCallTimeoutMs);
       if (text) {
         return { text, transcribedBy: 'whisper' };
       }
@@ -71,7 +95,7 @@ async function transcribeAudio(audioBuffer, filename = 'voice_report.mp3', mimet
     };
   }
 
-  throw new Error(lastError ? lastError.message : 'Transcription failed after retry.');
+  throw new Error(lastError ? lastError.message : 'Transcription failed or timed out.');
 }
 
 module.exports = {

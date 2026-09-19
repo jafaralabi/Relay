@@ -1,6 +1,16 @@
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const app = require('../src/app');
-const { clearCases, getAllCases } = require('../src/db');
+const { clearCases, getAllCases, getCaseById } = require('../src/db');
+
+let actorsData = {};
+try {
+  const actorsPath = path.join(__dirname, '..', 'data', 'actors.json');
+  if (fs.existsSync(actorsPath)) {
+    actorsData = JSON.parse(fs.readFileSync(actorsPath, 'utf8'));
+  }
+} catch (e) {}
 
 function getHttp(port, path) {
   return new Promise((resolve, reject) => {
@@ -475,7 +485,7 @@ async function runVerification() {
     // Scenario D1 (d): Double advance or verify before Claimed Resolved returns 409
     console.log(`\n[D1-d] Testing 409 guards on invalid transitions...`);
     clearCases();
-    const resLoneForGuard = await postJson(port, '/api/reports', { text: "Group gathering near Agege market entrance" });
+    const resLoneForGuard = await postJson(port, '/api/reports', { text: "There is a group of armed men gathering near the Agege market entrance, by the bus stop." });
     const loneCaseGuard = resLoneForGuard.body.case;
 
     const resVerifyEarly = await postJson(port, `/api/cases/${loneCaseGuard.id}/verify`, { text: "Area is calm" }, { 'x-demo-key': demoKey });
@@ -562,9 +572,198 @@ async function runVerification() {
       passed: testPrivacyPassed
     });
 
+    // Clear intake rate map so earlier tests don't pollute rate limiter
+    if (typeof app.clearIntakeRateLimit === 'function') {
+      app.clearIntakeRateLimit();
+    }
+
+    // Scenario D3 (a): Report matching a closed case creates a NEW case and leaves closed case unchanged
+    console.log(`\n[D3-a] Testing report matching a closed case creates a NEW case...`);
+    clearCases();
+    await postJson(port, '/api/demo/seed', {}, { 'x-demo-key': demoKey });
+    const seededAgege = getCaseById('RLA-1001');
+    const agegeEvidenceCountBefore = seededAgege.evidence.length;
+
+    const resAgegeNew = await postJson(port, '/api/reports', {
+      text: "There is a group of armed men gathering near the Agege market entrance, by the bus stop."
+    });
+    const newAgegeCase = resAgegeNew.body.case;
+    const seededAgegeAfter = getCaseById('RLA-1001');
+
+    const testD3aPassed = Boolean(
+      newAgegeCase &&
+      newAgegeCase.id !== 'RLA-1001' &&
+      seededAgegeAfter.status === 'Independently Verified' &&
+      seededAgegeAfter.evidence.length === agegeEvidenceCountBefore
+    );
+
+    results.push({
+      scenario: 'D3(a) Closed Case Match Creates NEW Case',
+      expected: 'New case created, closed Agege case RLA-1001 unchanged',
+      actual: newAgegeCase ? `New case ID: ${newAgegeCase.id}, RLA-1001 status: ${seededAgegeAfter.status}, evidence count: ${seededAgegeAfter.evidence.length}` : 'Failed',
+      passed: testD3aPassed
+    });
+
+    // Scenario D3 (b): Status never regresses
+    console.log(`\n[D3-b] Testing status never regresses on report merge...`);
+    clearCases();
+    if (typeof app.clearIntakeRateLimit === 'function') app.clearIntakeRateLimit();
+
+    const rStatus1 = await postJson(port, '/api/reports', { text: "There is a group of armed men gathering near the Agege market entrance, by the bus stop." });
+    const cStatus1 = rStatus1.body.case;
+
+    const rStatusCorrob = await postJson(port, '/api/reports', { text: "Wetin dey happen for Agege market na serious o. Some men with weapon dey near di bus stop, everybody dey run comot." });
+    const cStatusCorrob = rStatusCorrob.body.case;
+
+    await postJson(port, `/api/cases/${cStatusCorrob.id}/advance`, { action: 'Responders on site' }, { 'x-demo-key': demoKey });
+    const advancedCaseBefore = getCaseById(cStatusCorrob.id);
+
+    // Submitting third report into In Progress case
+    const rStatus3 = await postJson(port, '/api/reports', { text: "Third report about armed men gathering at Agege market" });
+    const mergedCaseAfter = getCaseById(cStatusCorrob.id);
+
+    const testD3bPassed = Boolean(
+      advancedCaseBefore &&
+      advancedCaseBefore.status === 'In Progress' &&
+      mergedCaseAfter &&
+      mergedCaseAfter.status === 'In Progress'
+    );
+
+    results.push({
+      scenario: 'D3(b) Status Monotonicity (Never Regresses)',
+      expected: 'Case stays at "In Progress" when corroborating report arrives',
+      actual: `Status before merge: ${advancedCaseBefore.status}, after merge: ${mergedCaseAfter.status}`,
+      passed: testD3bPassed
+    });
+
+    // Scenario D3 (c): responsible_actor and sla equal actors.json values
+    console.log(`\n[D3-c] Testing responsible_actor and sla match actors.json...`);
+    const allCurrentCases = getAllCases();
+    let actorSlaMatch = true;
+    for (const c of allCurrentCases) {
+      if (actorsData[c.type] && actorsData[c.type][c.severity]) {
+        const expectedActorSla = actorsData[c.type][c.severity];
+        if (c.responsible_actor !== expectedActorSla.responsible_actor || c.sla !== expectedActorSla.sla) {
+          actorSlaMatch = false;
+        }
+      }
+    }
+
+    results.push({
+      scenario: 'D3(c) Responsible Actor & SLA Match actors.json',
+      expected: 'All live API cases match actors.json actor and SLA',
+      actual: actorSlaMatch ? 'All cases matched actors.json' : 'Mismatch found',
+      passed: actorSlaMatch
+    });
+
+    // Scenario D3 (d): Duplicate adds no evidence or confidence
+    console.log(`\n[D3-d] Testing duplicate report (Jaccard >= 0.8)...`);
+    clearCases();
+    if (typeof app.clearIntakeRateLimit === 'function') app.clearIntakeRateLimit();
+
+    const dupOrig = await postJson(port, '/api/reports', { text: "There is a group of armed men gathering near the Agege market entrance by the bus stop" });
+    const dupCaseBefore = dupOrig.body.case;
+
+    const dupRes = await postJson(port, '/api/reports', { text: "There is a group of armed men gathering near the Agege market entrance by the bus stop!" });
+    const dupCaseAfter = getCaseById(dupCaseBefore.id);
+
+    const testD3dPassed = Boolean(
+      dupRes.statusCode === 200 &&
+      dupRes.body.duplicate === true &&
+      dupCaseAfter.evidence.length === dupCaseBefore.evidence.length &&
+      dupCaseAfter.confidence_score === dupCaseBefore.confidence_score
+    );
+
+    results.push({
+      scenario: 'D3(d) Duplicate Report Handling',
+      expected: 'HTTP 200 duplicate: true, evidence length and confidence score unchanged',
+      actual: `HTTP ${dupRes.statusCode}, duplicate: ${dupRes.body.duplicate}, evidence before: ${dupCaseBefore.evidence.length}, after: ${dupCaseAfter.evidence.length}`,
+      passed: testD3dPassed
+    });
+
+    // Scenario D3 (e): Seeded Agege case has exactly 2 reports plus 1 independent verification
+    console.log(`\n[D3-e] Testing seeded Agege evidence shape...`);
+    await postJson(port, '/api/demo/seed', {}, { 'x-demo-key': demoKey });
+    const seedAgegeCase = getCaseById('RLA-1001');
+    const textReportCount = seedAgegeCase.evidence.filter(e => typeof e === 'string').length;
+    const verificationCount = seedAgegeCase.evidence.filter(e => typeof e === 'object' && e.type === 'independent_verification').length;
+
+    const testD3ePassed = Boolean(
+      seedAgegeCase &&
+      seedAgegeCase.evidence.length === 3 &&
+      textReportCount === 2 &&
+      verificationCount === 1 &&
+      seedAgegeCase.confidence_score === 100
+    );
+
+    results.push({
+      scenario: 'D3(e) Seeded Agege Case Evidence Shape',
+      expected: '2 text reports + 1 independent verification object, confidence 100',
+      actual: `Total evidence: ${seedAgegeCase.evidence.length} (texts: ${textReportCount}, verify: ${verificationCount}), confidence: ${seedAgegeCase.confidence_score}`,
+      passed: testD3ePassed
+    });
+
+    // Scenario D3 (f): Unverified confidence <= 95 and verification sets 100
+    console.log(`\n[D3-f] Testing confidence rules (unverified <= 95, verified = 100)...`);
+    clearCases();
+    if (typeof app.clearIntakeRateLimit === 'function') app.clearIntakeRateLimit();
+
+    const c1 = (await postJson(port, '/api/reports', { text: "Report 1 Agege market armed group" })).body.case;
+    const c2 = (await postJson(port, '/api/reports', { text: "Report 2 Agege market armed group" })).body.case;
+    const c3 = (await postJson(port, '/api/reports', { text: "Report 3 Agege market armed group" })).body.case;
+
+    const unverifiedCapCheck = Boolean(c1.confidence_score <= 95 && c2.confidence_score <= 95 && c3.confidence_score <= 95);
+
+    await postJson(port, `/api/cases/${c3.id}/advance`, { action: 'Responders on site' }, { 'x-demo-key': demoKey });
+    await postJson(port, `/api/cases/${c3.id}/advance`, { action: 'Group dispersed' }, { 'x-demo-key': demoKey });
+    const verifiedRes = await postJson(port, `/api/cases/${c3.id}/verify`, { text: "Area is calm now, shops reopened", reporter: "+2348099990000" }, { 'x-demo-key': demoKey });
+    const verifiedCase = verifiedRes.body.case;
+
+    const testD3fPassed = Boolean(
+      unverifiedCapCheck &&
+      verifiedCase &&
+      verifiedCase.confidence_score === 100
+    );
+
+    results.push({
+      scenario: 'D3(f) Confidence Score Capping & Verification 100',
+      expected: 'Unverified confidence <= 95, verified confidence = 100',
+      actual: `Unverified max: ${Math.max(c1.confidence_score, c2.confidence_score, c3.confidence_score)}, Verified score: ${verifiedCase ? verifiedCase.confidence_score : 'N/A'}`,
+      passed: testD3fPassed
+    });
+
+    // Scenario D3 (g): Phone numbers and emails in a report are masked in the API output
+    console.log(`\n[D3-g] Testing privacy masking in report output...`);
+    clearCases();
+    if (typeof app.clearIntakeRateLimit === 'function') app.clearIntakeRateLimit();
+
+    const piiText = "Call me on +2348012345678 or email admin@example.com about armed group near Agege market entrance";
+    const piiRes = await postJson(port, '/api/reports', { text: piiText });
+    const piiCase = piiRes.body.case;
+
+    const evidenceTextStr = JSON.stringify(piiCase.evidence);
+    const rawReportStr = piiCase.raw_report;
+
+    const testD3gPassed = Boolean(
+      piiCase &&
+      evidenceTextStr.includes('[phone removed]') &&
+      evidenceTextStr.includes('[email removed]') &&
+      !evidenceTextStr.includes('+2348012345678') &&
+      !evidenceTextStr.includes('admin@example.com')
+    );
+
+    results.push({
+      scenario: 'D3(g) Privacy Masking of Phone Numbers & Emails',
+      expected: 'Phone and email masked with [phone removed] and [email removed]',
+      actual: piiCase ? `Raw/Evidence content: ${evidenceTextStr}` : 'Failed',
+      passed: testD3gPassed
+    });
+
     // Scenario D1 (h): Intake rate limit check (10 reports/IP/10min -> 429)
     console.log(`\n[D1-h] Testing public intake rate limiter (429)...`);
     clearCases();
+    if (typeof app.clearIntakeRateLimit === 'function') app.clearIntakeRateLimit();
+
     let lastIntakeStatus = 200;
     for (let i = 0; i < 11; i++) {
       const r = await postJson(port, '/api/reports', { text: `Test report message rate limit ${i}` });

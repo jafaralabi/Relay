@@ -11,6 +11,7 @@ This runbook provides exact step-by-step instructions for recording the demo vid
    - **Tab 2 (Demo Control Panel):** `http://localhost:3000/demo.html`
 2. Ensure the Relay backend server is running (`npm start` or `node src/server.js`).
 3. If `x-demo-key` is configured on the backend, type it into the Demo Key input box on `demo.html`.
+4. **Important Operational Rule:** Always click **Reset Database** on `demo.html` before starting or recording a new demo run. Identical resubmissions are automatically ignored as duplicates, so do not press the same report button twice without resetting first.
 
 ---
 
