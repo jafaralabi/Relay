@@ -14,6 +14,7 @@ const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+   app.use(express.static(require('path').join(__dirname, '..', 'public')));
 
 // Mount WhatsApp Cloud API Webhook
 app.use('/webhook', require('./whatsapp'));
