@@ -597,13 +597,7 @@ app.post('/api/cases/:id/verify', demoKeyAuth, async (req, res) => {
       confirms = await callGroqVerificationModel(verifyText);
     } catch (err) {
       console.error('[Verification Model Error]', err.message);
-      if (process.env.DEMO_MODE === 'true') {
-        console.warn('[Verification Model] DEMO_MODE=true enabled. Falling back to mock verification.');
-        const lower = verifyText.toLowerCase();
-        confirms = lower.includes('calm') || lower.includes('reopen') || lower.includes('resolved') || lower.includes('clear');
-      } else {
-        return res.status(503).json({ error: 'Model unavailable for verification.' });
-      }
+      return res.status(503).json({ error: 'Model unavailable for verification.' });
     }
 
     if (!confirms) {
