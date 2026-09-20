@@ -61,93 +61,57 @@ function phoneticNormalize(text) {
  * @param {Array} locations List of location objects from locations.json
  * @returns {Object|null} Matching location object or null
  */
-function fuzzyMatchLocation(inputLocation, locations) {
+function fuzzyMatchLocation(inputLocation, locations, options = {}) {
   if (!inputLocation || !locations || locations.length === 0) return null;
+  // `strict` = exact/alias substring matching only (use for whole report text)
+  const strict = options.strict === true;
 
   const rawLower = inputLocation.toLowerCase();
+  const rawSquashed = rawLower.replace(/[^a-z0-9]/g, '');
   const normalizedInput = normalizeText(inputLocation);
-  const phoneticInput = phoneticNormalize(inputLocation);
+  const phoneticInput = phoneticNormalize(normalizedInput);
 
-  // 1. Direct string / substring check on raw text against name and aliases
+  // 1. Direct substring check on raw text against name and aliases (also with spaces/punctuation removed, so "mile12" matches "mile 12")
   for (const loc of locations) {
-    if (loc.name && rawLower.includes(loc.name.toLowerCase())) {
-      return loc;
-    }
-    if (loc.aliases && loc.aliases.some(alias => rawLower.includes(alias.toLowerCase()))) {
-      return loc;
+    const names = [loc.name, ...(loc.aliases || [])].filter(Boolean).map(n => n.toLowerCase());
+    for (const n of names) {
+      if (rawLower.includes(n)) return loc;
+      const squashed = n.replace(/[^a-z0-9]/g, '');
+      if (squashed.length >= 5 && rawSquashed.includes(squashed)) return loc;
     }
   }
 
-  // 2. Direct check on normalized text
+  if (strict) return null;
+
+  // Inputs that reduce to nothing (only generic words) must never match anything
+  if (normalizedInput.length < 4) return null;
+
+  // 2. Whole-string comparison on normalized text (only when the input is a meaningful length)
   for (const loc of locations) {
-    const normName = normalizeText(loc.name);
-    if (normName && (normalizedInput.includes(normName) || normName.includes(normalizedInput))) {
-      return loc;
-    }
-    if (loc.aliases) {
-      for (const alias of loc.aliases) {
-        const normAlias = normalizeText(alias);
-        if (normAlias && (normalizedInput.includes(normAlias) || normAlias.includes(normalizedInput))) {
-          return loc;
-        }
-      }
+    for (const cand of [loc.name, ...(loc.aliases || [])]) {
+      const normCand = normalizeText(cand);
+      if (normCand.length >= 4 && (normalizedInput.includes(normCand) || normCand.includes(normalizedInput))) return loc;
     }
   }
 
-  // 3. Phonetic check
+  // 3. Phonetic whole-string comparison
   for (const loc of locations) {
-    const phoneticName = phoneticNormalize(loc.name);
-    if (phoneticName && (phoneticInput.includes(phoneticName) || phoneticName.includes(phoneticInput))) {
-      return loc;
-    }
-    if (loc.aliases) {
-      for (const alias of loc.aliases) {
-        const phoneticAlias = phoneticNormalize(alias);
-        if (phoneticAlias && (phoneticInput.includes(phoneticAlias) || phoneticAlias.includes(phoneticInput))) {
-          return loc;
-        }
-      }
+    for (const cand of [loc.name, ...(loc.aliases || [])]) {
+      const phoneticCand = phoneticNormalize(normalizeText(cand));
+      if (phoneticCand.length >= 4 && (phoneticInput.includes(phoneticCand) || phoneticCand.includes(phoneticInput))) return loc;
     }
   }
 
-  // 4. Fuzzy Levenshtein edit distance <= 2 on normalized token level
-  const inputTokens = normalizedInput.split(' ').filter(Boolean);
-  const inputPhoneticTokens = phoneticInput.split(' ').filter(Boolean);
-
+  // 4. Token-level fuzzy match: distinctive tokens only (5+ letters), 1 edit for 5-7 letters, 2 edits for 8+ letters
+  const maxDistance = len => (len >= 8 ? 2 : 1);
+  const inputTokens = [...new Set([...normalizedInput.split(' '), ...phoneticInput.split(' ')])].filter(t => t.length >= 5);
   for (const loc of locations) {
-    const candidateNames = [loc.name, ...(loc.aliases || [])];
-    for (const cand of candidateNames) {
+    for (const cand of [loc.name, ...(loc.aliases || [])]) {
       const candNorm = normalizeText(cand);
-      const candTokens = candNorm.split(' ').filter(Boolean);
-
-      // Check full edit distance if strings are short
-      if (candNorm && normalizedInput) {
-        if (levenshteinDistance(normalizedInput, candNorm) <= 2) {
-          return loc;
-        }
-      }
-
-      // Check token-by-token edit distance
-      for (const inToken of inputTokens) {
-        for (const candToken of candTokens) {
-          if (inToken.length >= 3 && candToken.length >= 3) {
-            if (levenshteinDistance(inToken, candToken) <= 2) {
-              return loc;
-            }
-          }
-        }
-      }
-
-      // Check phonetic token edit distance
-      const candPhonetic = phoneticNormalize(cand);
-      const candPhoneticTokens = candPhonetic.split(' ').filter(Boolean);
-      for (const inToken of inputPhoneticTokens) {
-        for (const candToken of candPhoneticTokens) {
-          if (inToken.length >= 3 && candToken.length >= 3) {
-            if (levenshteinDistance(inToken, candToken) <= 2) {
-              return loc;
-            }
-          }
+      const candTokens = [...new Set([...candNorm.split(' '), ...phoneticNormalize(candNorm).split(' ')])].filter(t => t.length >= 5);
+      for (const a of inputTokens) {
+        for (const b of candTokens) {
+          if (levenshteinDistance(a, b) <= Math.min(maxDistance(a.length), maxDistance(b.length))) return loc;
         }
       }
     }

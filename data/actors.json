@@ -27,7 +27,8 @@
       "sla": "24 hours",
       "simulated_ack_minutes": 45,
       "demo_route": true,
-      "stop_status": "Accepted"
+      "stop_status": "Accepted",
+      "demo_route_locations": ["Mile 12 market"]
     },
     "Low": {
       "responsible_actor": "Market association peace committee",
@@ -46,7 +47,8 @@
       "sla": "72 hours",
       "simulated_ack_minutes": 120,
       "demo_route": true,
-      "stop_status": "Assigned"
+      "stop_status": "Assigned",
+      "demo_route_locations": ["Ijegun"]
     },
     "Low": {
       "responsible_actor": "Local government desk officer",

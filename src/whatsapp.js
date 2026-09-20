@@ -20,6 +20,31 @@ router.get('/', (req, res) => {
 });
 
 /**
+ * What the reporter is told will happen next, based on the case's real status.
+ */
+function whatHappensNext(c) {
+  const actor = c.responsible_actor || 'the responsible actor';
+  const sla = c.sla || 'the agreed SLA';
+  switch (c.status) {
+    case 'Signal':
+    case 'Corroborating':
+      return `Your report has been received but is NOT verified yet. It needs at least one more independent report about the same place. If it is verified it will be assigned to ${actor} (SLA: ${sla}).`;
+    case 'Verified':
+      return `Your report has been verified by independent reports and is being assigned to ${actor} (SLA: ${sla}).`;
+    case 'Assigned':
+    case 'Accepted':
+    case 'In Progress':
+      return `Your report has been assigned to ${actor}, who works to the ${sla} SLA.${c.demo_scripted ? ' (Scripted demo routing.)' : ''}`;
+    case 'Claimed Resolved':
+      return 'The responder says this is resolved. Relay is waiting for an independent confirmation before closing it.';
+    case 'Independently Verified':
+      return 'This case was resolved and independently confirmed.';
+    default:
+      return 'Your report has been logged.';
+  }
+}
+
+/**
  * Format receipt text message for WhatsApp response.
  */
 function buildReceiptText(result) {
@@ -34,7 +59,10 @@ function buildReceiptText(result) {
   receipt += `Responsible Actor: ${c.responsible_actor || 'Unassigned'}\n`;
   receipt += `SLA: ${c.sla || 'N/A'}\n\n`;
   receipt += `What happens next:\n`;
-  receipt += `Your signal has been verified and logged. The assigned responder (${c.responsible_actor}) is notified and bound by the ${c.sla} SLA.`;
+  receipt += whatHappensNext(c);
+  if (result.duplicate) {
+    receipt += `\n\nNote: this looks like a report Relay already has, so it was not counted again.`;
+  }
 
   return receipt;
 }
@@ -89,8 +117,7 @@ async function fetchAndTranscribeAudio(mediaId, mimeType) {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
   if (!accessToken) {
-    console.warn('[WhatsApp Media] WHATSAPP_ACCESS_TOKEN missing. Using fallback transcription.');
-    return transcribeAudio(Buffer.from(''), 'voice.ogg', mimeType || 'audio/ogg');
+    throw new Error('WHATSAPP_ACCESS_TOKEN missing: cannot download the voice note.');
   }
 
   try {
@@ -124,8 +151,7 @@ async function fetchAndTranscribeAudio(mediaId, mimeType) {
     return await transcribeAudio(audioBuffer, `whatsapp_${mediaId}.ogg`, finalMime);
   } catch (err) {
     console.error('[WhatsApp Media Fetch Error]', err.message);
-    console.warn('[WhatsApp Media] Falling back to default transcription.');
-    return transcribeAudio(Buffer.from(''), 'voice.ogg', mimeType || 'audio/ogg');
+    throw err;
   }
 }
 
@@ -137,6 +163,7 @@ async function processIncomingMessage(message) {
   let reportText = null;
   let isVoice = false;
   let transcript = null;
+  let transcribedBy = null;
 
   if (message.type === 'text' && message.text) {
     reportText = message.text.body;
@@ -144,8 +171,17 @@ async function processIncomingMessage(message) {
     isVoice = true;
     const mediaId = message.audio.id;
     const mimeType = message.audio.mime_type;
-    transcript = await fetchAndTranscribeAudio(mediaId, mimeType);
-    reportText = transcript;
+    try {
+      // transcribeAudio returns { text, transcribedBy } (the old code used the whole object as the text)
+      const transcription = await fetchAndTranscribeAudio(mediaId, mimeType);
+      transcript = transcription.text;
+      transcribedBy = transcription.transcribedBy;
+      reportText = transcript;
+    } catch (err) {
+      console.error('[WhatsApp Voice Failed]', err.message);
+      await sendWhatsAppMessage(from, 'Relay could not process your voice note. Please send your report as a text message.');
+      return;
+    }
   }
 
   if (!reportText || !reportText.trim()) {
@@ -160,6 +196,7 @@ async function processIncomingMessage(message) {
     text: reportText,
     isVoice,
     transcript,
+    transcribedBy,
     reporter: from,
     notifyTo: from
   });

@@ -18,12 +18,12 @@ const upload = multer({
 
 const app = express();
 
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 // Add basic security headers per spec
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('X-Frame-Options', 'DENY');
   next();
 });
@@ -104,11 +104,17 @@ try {
 /**
  * Match location text against gazetteer or override with explicit lat/lng using fuzzy location resolution.
  */
-function resolveLocation(locationText, inputLat, inputLng) {
-  let lat = (inputLat !== undefined && inputLat !== null) ? Number(inputLat) : null;
-  let lng = (inputLng !== undefined && inputLng !== null) ? Number(inputLng) : null;
+function resolveLocation(locationText, inputLat, inputLng, options = {}) {
+  const strict = options.strict === true;
+  const toCoord = (v, limit) => {
+    if (v === undefined || v === null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && Math.abs(n) <= limit ? n : null;
+  };
+  let lat = toCoord(inputLat, 90);
+  let lng = toCoord(inputLng, 180);
 
-  const matchedLoc = fuzzyMatchLocation(locationText, locationsData);
+  const matchedLoc = fuzzyMatchLocation(locationText, locationsData, { strict });
 
   if (matchedLoc) {
     if (lat === null) lat = matchedLoc.lat;
@@ -116,7 +122,8 @@ function resolveLocation(locationText, inputLat, inputLng) {
     return { lat, lng, location_text: matchedLoc.name };
   }
 
-  return { lat, lng, location_text: locationText || null };
+  // In strict mode the text is a whole report: never store it as a place name.
+  return { lat, lng, location_text: strict ? null : (locationText || null) };
 }
 
 /**
@@ -219,11 +226,11 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
   }
 
   // 3. Gazetteer / Fuzzy Location Resolution
-  const locationInfo = resolveLocation(
-    classification.location_text || reportText,
-    inputLat,
-    inputLng
-  );
+  // Use the place the model found (fuzzy-matched to the gazetteer). If it found none, accept only an EXACT
+  // gazetteer name/alias inside the report text. Never fuzzy-match a whole report: that invented locations.
+  const locationInfo = classification.location_text
+    ? resolveLocation(classification.location_text, inputLat, inputLng)
+    : resolveLocation(reportText, inputLat, inputLng, { strict: true });
 
   const now = new Date().toISOString();
   const reporterHash = reporter ? hashReporter(reporter) : null;
@@ -331,7 +338,7 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
         confidence_score: initialConfidence,
         responsible_actor: actorSla.responsible_actor,
         sla: actorSla.sla,
-        action: `Assigned to ${actorSla.responsible_actor}`,
+        action: null,
         evidence: isVoice ? [{ type: 'voice', text: reportText, transcript: maskedTranscript || reportText, transcribed_by: transcribedBy || 'whisper', at: now }] : [reportText],
         raw_report: reportText,
         lat: locationInfo.lat,
@@ -351,7 +358,10 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
     targetCase.responsible_actor = actorConfig.responsible_actor;
     targetCase.sla = actorConfig.sla;
 
-    const isDemoRoute = Boolean(actorConfig && actorConfig.demo_route);
+    // Scripted demo routing applies ONLY to the two demo places listed in data/actors.json (demo_route_locations).
+    // Any other report follows the normal rule: it stays at Signal until independently corroborated.
+    const demoLocations = Array.isArray(actorConfig.demo_route_locations) ? actorConfig.demo_route_locations : null;
+    const isDemoRoute = Boolean(actorConfig && actorConfig.demo_route) && (!demoLocations || demoLocations.includes(targetCase.location_text));
 
     if (isDemoRoute) {
       targetCase.demo_scripted = true;
@@ -454,13 +464,10 @@ app.get('/api/health', (req, res) => {
  * Returns boolean confirmation or throws Error if unavailable.
  */
 async function callGroqVerificationModel(text) {
-  const lower = text.toLowerCase();
-  const isHeuristicConfirm = lower.includes('calm') || lower.includes('reopened') || lower.includes('resolved') || lower.includes('clear') || lower.includes('ended');
-
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    console.warn('[Verification AI] GROQ_API_KEY missing in environment, using offline heuristic verification fallback.');
-    return isHeuristicConfirm;
+    // No keyword fallback: independent verification is decided by the model or not at all.
+    throw new Error('GROQ_API_KEY missing in environment.');
   }
 
   const primaryModel = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
@@ -516,7 +523,7 @@ Do not include any additional explanation or formatting.`;
         const contentText = choice && choice.message && choice.message.content;
         if (contentText) {
           const parsed = JSON.parse(contentText.trim());
-          return Boolean(parsed.confirms);
+          return parsed.confirms === true || parsed.confirms === 'true';
         } else {
           const finishReason = choice ? choice.finish_reason : 'unknown';
           console.warn(`[Verification AI] Empty content from model ${modelId}. finish_reason=${finishReason}`);
@@ -528,8 +535,8 @@ Do not include any additional explanation or formatting.`;
     }
   }
 
-  console.warn('[Verification AI] All model verification attempts failed, using offline heuristic verification fallback.');
-  return isHeuristicConfirm;
+  // No keyword fallback: independent verification is decided by the model or not at all.
+  throw new Error('All model verification attempts failed.');
 }
 
 /**
@@ -648,11 +655,6 @@ app.post('/api/reports/voice', intakeRateLimiter, upload.any(), async (req, res)
     console.error('[Voice Intake Error]', err.message);
     return res.status(500).json({ error: 'Internal server error processing voice report.' });
   }
-});
-
-// Endpoint: Alias POST /api/cases -> POST /api/reports
-app.post('/api/cases', intakeRateLimiter, async (req, res) => {
-  return app._router.handle(req, res, () => {}, '/api/reports');
 });
 
 // Endpoint: Advance case status (Accepted -> In Progress -> Claimed Resolved)

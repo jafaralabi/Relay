@@ -109,7 +109,7 @@ function fallbackClassify(text, reason = 'API key missing or request failed') {
   const lower = text.toLowerCase();
 
   // Match gazetteer entry or set location_text to null
-  const matchedLoc = fuzzyMatchLocation(text, locationsGazetteer);
+  const matchedLoc = fuzzyMatchLocation(text, locationsGazetteer, { strict: true });
   const locationText = matchedLoc ? matchedLoc.name : null;
 
   // Non-incident detection: short greetings and simple questions

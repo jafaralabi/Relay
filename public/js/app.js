@@ -438,7 +438,12 @@ function renderTrustReceipt() {
   const ackText = formatAcknowledged(caseRecord);
 
   // Action field
-  let actionText = caseRecord.action || 'Report received and queued';
+  let actionText = caseRecord.action;
+  if (!actionText) {
+    if (caseRecord.status === 'Verified') actionText = 'Awaiting assignment';
+    else if (['Signal', 'Corroborating'].includes(caseRecord.status)) actionText = 'Awaiting corroboration';
+    else actionText = 'Report received and queued';
+  }
 
   // Resolution field
   let resolutionText = caseRecord.resolution;
