@@ -5,12 +5,53 @@ const crypto = require('crypto');
 const { chromium } = require('playwright');
 const { installFakeApis } = require('../lib/fake-apis');
 
+// Handle CLI arguments (--help / -h / unknown arguments)
+const args = process.argv.slice(2);
+const usage = `
+Relay Demo Video Recording Script
+
+Usage:
+  node scripts/demo-video/record.js [options]
+
+Options:
+  -h, --help    Show this usage message and exit
+
+Modes (via DEMO_MODEL environment variable):
+  stub (default)  Offline recording using fake model and API responses.
+                  Visual marker: Red top banner.
+                  Output file: docs/demo/relay-demo-offline.webm
+  live            Online recording using live Groq API.
+                  Requires GROQ_API_KEY (loaded from env or .env).
+                  Output file: docs/demo/relay-demo-live.webm
+
+Environment Variables:
+  DEMO_MODEL       Mode selection ('stub' or 'live', default: 'stub')
+  GROQ_API_KEY     Groq API key (required in live mode)
+  DEMO_PACE_MS     Pause delay in ms for live mode (default: 10000)
+`;
+
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(usage.trim());
+  process.exit(0);
+}
+
+if (args.length > 0) {
+  console.error(`Unknown option(s): ${args.join(' ')}\n`);
+  console.error(usage.trim());
+  process.exit(1);
+}
+
 const mode = process.env.DEMO_MODEL || 'stub';
 const paceMs = parseInt(process.env.DEMO_PACE_MS || '10000', 10);
 
-if (mode === 'live' && !process.env.GROQ_API_KEY) {
-  console.error('ERROR: DEMO_MODEL is set to "live" but GROQ_API_KEY is missing from environment.');
-  process.exit(1);
+if (mode === 'live') {
+  if (!process.env.GROQ_API_KEY) {
+    require('dotenv').config();
+  }
+  if (!process.env.GROQ_API_KEY) {
+    console.error('ERROR: DEMO_MODEL is set to "live" but GROQ_API_KEY is missing from environment.');
+    process.exit(1);
+  }
 }
 
 // Generate random DEMO_KEY per run
@@ -174,6 +215,21 @@ function getCardHtml(title, subtitle, bullets = []) {
         } else if (captionBanner) {
           captionBanner.remove();
         }
+
+        // Reserve caption band space by adding padding to body
+        let styleEl = document.getElementById('demo-caption-style');
+        if (captionText && captionBanner) {
+          const bannerHeight = captionBanner.offsetHeight || 60;
+          const pad = bannerHeight + 16;
+          if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'demo-caption-style';
+            document.head.appendChild(styleEl);
+          }
+          styleEl.textContent = `body { padding-bottom: ${pad}px !important; }`;
+        } else if (styleEl) {
+          styleEl.remove();
+        }
       }, { isStub: mode === 'stub', captionText: currentCaption });
     } catch (_) {
       // Page might be navigating
@@ -185,6 +241,40 @@ function getCardHtml(title, subtitle, bullets = []) {
     await applyOverlay(pg, text);
     const minMs = Math.max(3000, Math.ceil((text.length / 14) * 1000));
     await sleep(minMs + extraHoldMs);
+  };
+
+  const scrollToForm = async (pg) => {
+    try {
+      await pg.evaluate(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      await sleep(400);
+    } catch (_) {}
+  };
+
+  const scrollToWorkspace = async (pg) => {
+    try {
+      await pg.evaluate(() => {
+        const grid = document.querySelector('.workspace-grid') || document.querySelector('#feed-heading');
+        if (grid) {
+          const top = grid.getBoundingClientRect().top + window.scrollY - 12;
+          window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        }
+      });
+      await sleep(400);
+    } catch (_) {}
+  };
+
+  const scrollReceiptToBottom = async (pg) => {
+    try {
+      await pg.evaluate(() => {
+        const container = document.querySelector('#receipt-container');
+        if (container) {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+      });
+      await sleep(400);
+    } catch (_) {}
   };
 
   try {
@@ -284,11 +374,13 @@ function getCardHtml(title, subtitle, bullets = []) {
         ? 'Everything from here runs the real app; the AI responses are simulated.'
         : 'An empty system. Everything from here is a real run of the app.';
 
+      await scrollToWorkspace(page);
       await showCaption(page, captionText, 1500);
     });
 
     // --- STEP 5: English report ---
     await executeStep(5, 'Submit English Report', async () => {
+      await scrollToForm(page);
       await page.fill('#report-text', '');
       await page.type('#report-text', EN_TEXT, { delay: 25 });
       await page.click('#submit-report-btn');
@@ -310,12 +402,14 @@ function getCardHtml(title, subtitle, bullets = []) {
                receiptText.includes('Closed') && receiptText.includes('No');
       }, 'Receipt shows "(proposed)", "Awaiting corroboration", and "Closed" "No"');
 
+      await scrollToWorkspace(page);
       await showCaption(page, 'A report arrives. The AI classifies it: Safety, High severity, place Agege market. One report is never enough, so it stays at Signal.', 1500);
       if (mode === 'live') await sleep(paceMs);
     });
 
     // --- STEP 6: Pidgin report ---
     await executeStep(6, 'Submit Pidgin Corroborating Report', async () => {
+      await scrollToForm(page);
       await page.fill('#report-text', '');
       await page.type('#report-text', PG_TEXT, { delay: 25 });
       await page.click('#submit-report-btn');
@@ -336,6 +430,8 @@ function getCardHtml(title, subtitle, bullets = []) {
                /SIMULATED RESPONDER TIMELINE/i.test(receiptText);
       }, 'Receipt shows "2 independent reports", "30 minutes", "22 minutes after report", and "SIMULATED RESPONDER TIMELINE"');
 
+      await scrollToWorkspace(page);
+      await scrollReceiptToBottom(page);
       await showCaption(page, "A second person reports in Nigerian Pidgin. Two independent reports verify it and it is assigned to a named actor with a 30-minute SLA. The responder's acceptance is simulated and labelled.", 1500);
       if (mode === 'live') await sleep(paceMs);
     });
@@ -365,7 +461,8 @@ function getCardHtml(title, subtitle, bullets = []) {
         return feedText.includes('Claimed Resolved') && badgeElem > 0;
       }, 'Case shows Claimed Resolved with violet badge class', 15000);
 
-      await showCaption(page, 'The responder acts and claims it resolved. Violet: a claim is not a verification.', 1500);
+      await scrollToWorkspace(page);
+      await showCaption(page, 'The responder acts and claims it resolved. Violet: a claim is not a verification.', 5000);
     });
 
     // --- STEP 8: Verify case ---
@@ -388,13 +485,10 @@ function getCardHtml(title, subtitle, bullets = []) {
                receiptText.includes('Closed') && receiptText.includes('Yes');
       }, 'Case shows Independently Verified, Closed Yes, confidence 100');
 
-      // Scroll receipt to independent verification block and timeline
-      await page.evaluate(() => {
-        const container = document.querySelector('#receipt-container');
-        if (container) container.scrollTop = container.scrollHeight;
-      });
+      await scrollToWorkspace(page);
+      await scrollReceiptToBottom(page);
 
-      await showCaption(page, 'A third community member confirms the area is calm. The model checks the confirmation; if it were unavailable, nothing would change. The case is closed with a Trust Receipt.', 2000);
+      await showCaption(page, 'A third community member confirms the area is calm. The model checks the confirmation; if it were unavailable, nothing would change. The case is closed with a Trust Receipt.', 6000);
       if (mode === 'live') await sleep(paceMs);
     });
 
@@ -405,6 +499,7 @@ function getCardHtml(title, subtitle, bullets = []) {
         headers: { 'Content-Type': 'application/json', 'x-demo-key': demoKey }
       });
 
+      await scrollToForm(page);
       await page.fill('#report-text', '');
       await page.type('#report-text', MILE12_TEXT, { delay: 25 });
       await page.click('#submit-report-btn');
@@ -418,12 +513,15 @@ function getCardHtml(title, subtitle, bullets = []) {
                receiptText.includes('24 hours');
       }, 'Status Accepted, badge "SCRIPTED DEMO ROUTING", actor "Trained community mediator", SLA 24 hours');
 
+      await scrollToWorkspace(page);
+      await scrollReceiptToBottom(page);
       await showCaption(page, 'A market dispute routes to a trained mediator. This demo scenario uses scripted routing, and the badge says so.', 1500);
       if (mode === 'live') await sleep(paceMs);
     });
 
     // --- STEP 10: Submit Ijegun ---
     await executeStep(10, 'Scripted Routing - Ijegun Primary School', async () => {
+      await scrollToForm(page);
       await page.fill('#report-text', '');
       await page.type('#report-text', IJEGUN_TEXT, { delay: 25 });
       await page.click('#submit-report-btn');
@@ -437,12 +535,15 @@ function getCardHtml(title, subtitle, bullets = []) {
                receiptText.includes('72 hours');
       }, 'Status Assigned, actor "Local government works officer", SLA 72 hours, badge "SCRIPTED DEMO ROUTING"');
 
+      await scrollToWorkspace(page);
+      await scrollReceiptToBottom(page);
       await showCaption(page, 'A broken borehole routes to a local government works officer.', 1500);
       if (mode === 'live') await sleep(paceMs);
     });
 
     // --- STEP 11: Submit Oshodi ---
     await executeStep(11, 'Normal Routing - Oshodi Market', async () => {
+      await scrollToForm(page);
       await page.fill('#report-text', '');
       await page.type('#report-text', OSHODI_TEXT, { delay: 25 });
       await page.click('#submit-report-btn');
@@ -455,17 +556,20 @@ function getCardHtml(title, subtitle, bullets = []) {
                receiptText.includes('Signal');
       }, 'Oshodi report is Signal without SCRIPTED DEMO ROUTING badge');
 
+      await scrollToWorkspace(page);
       await showCaption(page, 'The same kind of report at any other place follows the normal rules: it waits at Signal for a second independent report.', 1500);
       if (mode === 'live') await sleep(paceMs);
     });
 
     // --- STEP 12: Hold map & click each card ---
     await executeStep(12, 'Interactive Map & Status Icons', async () => {
+      await scrollToWorkspace(page);
       const cards = page.locator('#case-feed-list .case-item');
       const count = await cards.count();
 
       for (let i = 0; i < count; i++) {
         await cards.nth(i).click();
+        await scrollReceiptToBottom(page);
         await sleep(2000);
         await assertWithTimeout(async () => {
           const selectedMarker = await page.locator('.leaflet-marker-icon').count();
