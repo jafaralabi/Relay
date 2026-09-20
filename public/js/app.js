@@ -177,10 +177,32 @@ function updateMapMarkers(cases) {
   const currentIds = new Set();
   const validBoundsPoints = [];
 
+  // Cases at exactly the same place would hide each other. The oldest keeps the exact spot; newer ones are fanned
+  // out by roughly 60 m so every marker can be seen and clicked.
+  const groups = new Map();
+  cases.forEach(c => {
+    if (c.lat && c.lng) {
+      const key = Number(c.lat).toFixed(4) + ',' + Number(c.lng).toFixed(4);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(c);
+    }
+  });
+  const positions = new Map();
+  groups.forEach(list => {
+    list.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    list.forEach((c, i) => {
+      if (i === 0) { positions.set(c.id, [c.lat, c.lng]); return; }
+      const angle = i * 2.399963;               // the golden angle spreads points evenly
+      const radius = 0.0006 * Math.ceil(i / 6);
+      positions.set(c.id, [c.lat + radius * Math.sin(angle), c.lng + radius * Math.cos(angle)]);
+    });
+  });
+
   cases.forEach(c => {
     if (c.lat && c.lng) {
       currentIds.add(c.id);
-      validBoundsPoints.push([c.lat, c.lng]);
+      const pos = positions.get(c.id) || [c.lat, c.lng];
+      validBoundsPoints.push(pos);
 
       const colorClass = getStageColorClass(c.status);
       const isHighSeverity = c.severity === 'High';
@@ -204,11 +226,12 @@ function updateMapMarkers(cases) {
 
       if (markersMap.has(c.id)) {
         const marker = markersMap.get(c.id);
-        marker.setLatLng([c.lat, c.lng]);
+        marker.setLatLng(pos);
         marker.setIcon(customIcon);
+        marker.setZIndexOffset(c.id === selectedCaseId ? 1000 : 0);
         marker.setPopupContent(popupHtml);
       } else {
-        const marker = L.marker([c.lat, c.lng], { icon: customIcon }).addTo(map);
+        const marker = L.marker(pos, { icon: customIcon, zIndexOffset: c.id === selectedCaseId ? 1000 : 0 }).addTo(map);
         marker.bindPopup(popupHtml);
         markersMap.set(c.id, marker);
       }
