@@ -18,9 +18,19 @@ The script operates in two modes controlled by the `DEMO_MODEL` environment vari
 
 ### 2. `live` Mode
 * **Command**: `DEMO_MODEL=live GROQ_API_KEY="your_groq_api_key" npm run demo:record`
-* **Behavior**: Uses the real live Groq API (`openai/gpt-oss-120b`). Refuses to start unless `GROQ_API_KEY` is provided. Automatically pauses `DEMO_PACE_MS` (default 10000 ms) after steps calling the model to comply with Groq free tier rate limits (8,000 tokens/minute). If rate limited (HTTP 429), it automatically retries once after 30 seconds.
+* **Behavior**: Uses the real live Groq API (`openai/gpt-oss-120b`). Refuses to start unless `GROQ_API_KEY` is provided in the shell environment or loaded from `.env`. Automatically pauses `DEMO_PACE_MS` (default 10000 ms) after steps calling the model to comply with Groq free tier rate limits (8,000 tokens/minute). If rate limited (HTTP 429), it automatically retries once after 30 seconds.
 * **Visual Marker**: Clean recording without simulated model banner.
-* **Output File**: `docs/demo/relay-demo-live.webm`.
+* **Output File**: `docs/demo/relay-demo-live.webm` (ignored by git).
+
+---
+
+## Command Line Options
+
+Run `node scripts/demo-video/record.js --help` or `-h` to display usage options without initiating recording or starting the server:
+
+```bash
+node scripts/demo-video/record.js --help
+```
 
 ---
 
@@ -29,7 +39,7 @@ The script operates in two modes controlled by the `DEMO_MODEL` environment vari
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `DEMO_MODEL` | `stub` | Mode selection: `stub` (offline mock model) or `live` (real Groq API). |
-| `GROQ_API_KEY` | *(None)* | Required in `live` mode. Never commit or log this key. |
+| `GROQ_API_KEY` | *(None)* | Required in `live` mode (loaded from shell or `.env`). Never commit or log this key. |
 | `DEMO_PACE_MS` | `10000` | Delay in milliseconds after model-calling steps in `live` mode. |
 
 ---

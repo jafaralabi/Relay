@@ -6,3 +6,4 @@ node_modules/
 *.sqlite
 *.log
 docs/demo/tmp/
+docs/demo/relay-demo-live.webm
