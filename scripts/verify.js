@@ -798,8 +798,16 @@ async function runVerification() {
 
     console.log('\n----------------------------------------------------');
     console.log(`Models Used: ${Array.from(modelsUsed).join(', ') || 'None'}`);
-    console.log(`Fallback Used: ${fallbackCount > 0 ? `YES (${fallbackCount} time(s))` : 'NO'}`);
+    const fallbackTotal = Math.max(fallbackCount, require('../src/classifier').getFallbackCount());
+    console.log(`Fallback Used: ${fallbackTotal > 0 ? `YES (${fallbackTotal} time(s))` : 'NO'}`);
     console.log('----------------------------------------------------');
+
+    if (fallbackTotal > 0 && process.env.ALLOW_FALLBACK !== '1') {
+      console.error('❌ INVALID RUN — the model was not used for every report, so these results say nothing about the model path.');
+      console.error('   Check GROQ_API_KEY and the rate limit, or set ALLOW_FALLBACK=1 to accept a keyword-fallback run.');
+      console.log('----------------------------------------------------');
+      process.exit(1);
+    }
 
     if (allPassed) {
       console.log('🎉 ALL VERIFICATION TESTS PASSED SUCCESSFULLY!');

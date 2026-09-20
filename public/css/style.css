@@ -481,6 +481,7 @@ body {
 .dot-amber { background-color: var(--status-amber); }
 .dot-blue { background-color: var(--status-blue); }
 .dot-green { background-color: var(--status-green); }
+.dot-violet { background-color: #6d28d9; }
 
 /* Status Badges with WCAG AA High Contrast */
 .badge {
@@ -521,6 +522,7 @@ body {
 .status-stage-amber { background-color: #fef3c7; color: #78350f; }
 .status-stage-blue { background-color: #dbeafe; color: #1e3a8a; }
 .status-stage-green { background-color: #d1fae5; color: #064e3b; }
+.status-stage-violet { background-color: #ede9fe; color: #4c1d95; }
 
 .severity-high { color: var(--severity-high); font-weight: 800; }
 .severity-medium { color: var(--severity-medium); font-weight: 700; }
@@ -550,6 +552,7 @@ body {
 .pin-amber { background-color: var(--status-amber); }
 .pin-blue { background-color: var(--status-blue); }
 .pin-green { background-color: var(--status-green); }
+.pin-violet { background-color: #6d28d9; }
 
 .receipt-highlight {
   animation: highlight-flash 1.2s ease-out;

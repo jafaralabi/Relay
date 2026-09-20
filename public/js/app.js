@@ -39,6 +39,7 @@ function getStageColorClass(status) {
     case 'In Progress':
       return 'pin-blue';
     case 'Claimed Resolved':
+      return 'pin-violet';
     case 'Independently Verified':
       return 'pin-green';
     default:
@@ -58,6 +59,7 @@ function getBadgeColorClass(status) {
     case 'In Progress':
       return 'status-stage-blue';
     case 'Claimed Resolved':
+      return 'status-stage-violet';
     case 'Independently Verified':
       return 'status-stage-green';
     default:
@@ -78,6 +80,7 @@ function getStageIconSvg(status) {
     case 'In Progress':
       return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
     case 'Claimed Resolved':
+      return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 2h12M6 22h12M7 2v4a5 5 0 0 0 2 4l3 2-3 2a5 5 0 0 0-2 4v4M17 2v4a5 5 0 0 1-2 4l-3 2 3 2a5 5 0 0 1 2 4v4"/></svg>`;
     case 'Independently Verified':
       return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
     default:
@@ -360,7 +363,7 @@ function renderFeedList(cases) {
           </div>
         ` : ''}
         <div class="case-item-body">
-          <strong>${escapeHtml(c.type || 'Incident')}</strong>: ${escapeHtml(c.location_text || c.raw_report || 'Location unverified')}
+          <strong>${escapeHtml(c.type || 'Incident')}</strong>: ${escapeHtml(c.location_text || 'Location unknown')}
         </div>
         <div class="case-item-footer">
           <span class="${severityClass}">${escapeHtml(c.severity ? c.severity + ' Severity' : 'Normal')}</span>

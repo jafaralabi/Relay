@@ -318,9 +318,11 @@ function findMatchingCase(type, locationText, lat, lng, timeWindowMinutes = 60) 
     if (diffMinutes > timeWindowMinutes) return false;
 
     if (locationText && c.location_text) {
-      const loc1 = locationText.toLowerCase();
-      const loc2 = c.location_text.toLowerCase();
-      if (loc1.includes(loc2) || loc2.includes(loc1)) return true;
+      // Same place only (equal after trimming/lowercasing). A substring match let a short word such as "market"
+      // join reports from different places.
+      const loc1 = String(locationText).trim().toLowerCase();
+      const loc2 = String(c.location_text).trim().toLowerCase();
+      if (loc1.length >= 4 && loc1 === loc2) return true;
     }
 
     if (lat !== null && lat !== undefined && lng !== null && lng !== undefined && c.lat !== null && c.lng !== null) {

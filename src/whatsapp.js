@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const { transcribeAudio } = require('./transcribe');
 
@@ -160,6 +161,10 @@ async function fetchAndTranscribeAudio(mediaId, mimeType) {
  */
 async function processIncomingMessage(message) {
   const from = message.from;
+  if (!from || !senderAllowed(from)) {
+    console.warn('[WhatsApp Webhook] Message ignored: missing sender or sender rate limit reached.');
+    return;
+  }
   let reportText = null;
   let isVoice = false;
   let transcript = null;
@@ -205,8 +210,50 @@ async function processIncomingMessage(message) {
   await sendWhatsAppMessage(from, receiptBody);
 }
 
+/**
+ * Meta signs every webhook POST with the app secret (X-Hub-Signature-256). Without checking it, anyone could post
+ * made-up messages. In production a missing WHATSAPP_APP_SECRET means the webhook refuses every POST.
+ */
+function verifyMetaSignature(req) {
+  const secret = process.env.WHATSAPP_APP_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') return { ok: false, reason: 'WHATSAPP_APP_SECRET is not set in production' };
+    if (!verifyMetaSignature.warned) {
+      verifyMetaSignature.warned = true;
+      console.warn('[WhatsApp Webhook] WHATSAPP_APP_SECRET is not set: webhook signatures are NOT verified (development only).');
+    }
+    return { ok: true };
+  }
+  const header = req.headers['x-hub-signature-256'];
+  if (!header || !req.rawBody) return { ok: false, reason: 'missing signature' };
+  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(req.rawBody).digest('hex');
+  const a = Buffer.from(String(header));
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false, reason: 'invalid signature' };
+  return { ok: true };
+}
+
+// At most 10 messages per sender per 10 minutes (in memory, keyed by a hash of the sender id).
+const senderHits = new Map();
+function senderAllowed(from) {
+  const key = crypto.createHash('sha256').update(String(from)).digest('hex');
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000;
+  const recent = (senderHits.get(key) || []).filter(t => now - t < windowMs);
+  if (recent.length >= 10) { senderHits.set(key, recent); return false; }
+  recent.push(now);
+  senderHits.set(key, recent);
+  if (senderHits.size > 10000) senderHits.delete(senderHits.keys().next().value);
+  return true;
+}
+
 // POST /webhook — Receive incoming WhatsApp webhook payloads
 router.post('/', (req, res) => {
+  const sig = verifyMetaSignature(req);
+  if (!sig.ok) {
+    console.warn(`[WhatsApp Webhook] Rejected POST: ${sig.reason}`);
+    return res.sendStatus(403);
+  }
   // Return HTTP 200 immediately per Meta requirements
   res.status(200).send('EVENT_RECEIVED');
 

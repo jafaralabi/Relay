@@ -94,3 +94,12 @@ Use your hosted production URL, e.g., `https://relay-api.onrender.com`.
    - A Trust Receipt text reply is sent back to your WhatsApp number via Meta Graph API (`POST https://graph.facebook.com/v20.0/{WHATSAPP_PHONE_NUMBER_ID}/messages`).
 3. Send a voice note to the test number:
    - Webhook downloads audio binary via Meta Graph API, transcribes it using Groq Whisper Large V3, creates/merges case, and sends back a Trust Receipt reply.
+
+## Webhook signature (required in production)
+
+Meta signs every webhook POST with your app secret (header `X-Hub-Signature-256`). Relay checks it, so nobody can post made-up messages.
+
+1. In the Meta app dashboard open **App settings > Basic** and copy the **App secret**.
+2. Set it as `WHATSAPP_APP_SECRET` (in `.env` locally, in the hosting dashboard when deployed).
+3. With `NODE_ENV=production` and no `WHATSAPP_APP_SECRET`, Relay answers **403** to every webhook POST. Outside production it accepts unsigned posts and logs a warning once.
+4. Each sender can send at most 10 messages per 10 minutes; extra messages are ignored.

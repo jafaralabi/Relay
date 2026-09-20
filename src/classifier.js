@@ -103,7 +103,11 @@ function maskPrivacy(text) {
  * Heuristic fallback classifier in case API key is missing or all API attempts fail.
  * Set location_text only if a gazetteer entry matches the text; otherwise null.
  */
+let fallbackCount = 0;
+function getFallbackCount() { return fallbackCount; }
+
 function fallbackClassify(text, reason = 'API key missing or request failed') {
+  fallbackCount++;
   console.warn(`[Classifier] FALLBACK USED: ${reason}`);
 
   const lower = text.toLowerCase();
@@ -425,5 +429,6 @@ module.exports = {
   fallbackClassify,
   maskPrivacy,
   cleanLocationText,
-  getActorAndSla
+  getActorAndSla,
+  getFallbackCount
 };

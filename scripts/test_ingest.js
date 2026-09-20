@@ -67,6 +67,10 @@ async function runTest() {
       throw new Error(`Expected urgency 'High', got '${caseData.urgency}'`);
     }
 
+    if (caseData.classified_by === 'fallback' && process.env.ALLOW_FALLBACK !== '1') {
+      throw new Error('INVALID RUN — the model was not used (classified_by = fallback). Set ALLOW_FALLBACK=1 to allow this.');
+    }
+
     console.log('\n✅ Classification assertions passed:');
     console.log(`- Type: ${caseData.type}`);
     console.log(`- Severity: ${caseData.severity}`);

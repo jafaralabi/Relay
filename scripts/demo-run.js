@@ -25,10 +25,13 @@ function postJson(port, path, body, headers = {}) {
         let data = '';
         res.on('data', chunk => { data += chunk; });
         res.on('end', () => {
-          try {
-            resolve({ statusCode: res.statusCode, body: JSON.parse(data) });
-          } catch (e) {
-            resolve({ statusCode: res.statusCode, body: data });
+          let parsed = data;
+          try { parsed = JSON.parse(data); } catch (e) { /* keep the raw text */ }
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ statusCode: res.statusCode, body: parsed });
+          } else {
+            const detail = parsed && typeof parsed === 'object' ? (parsed.error || parsed.note || JSON.stringify(parsed)) : String(parsed);
+            reject(new Error(`${path} returned HTTP ${res.statusCode}: ${detail}`));
           }
         });
       }
@@ -50,7 +53,11 @@ async function runDemo() {
   await new Promise(resolve => server.listen(0, resolve));
   const port = server.address().port;
 
-  const demoKey = process.env.DEMO_KEY || 'relay_demo_secret_key_2026';
+  const demoKey = process.env.DEMO_KEY;
+  if (!demoKey) {
+    console.error('DEMO_KEY is not set. Put it in .env or run:  $env:DEMO_KEY = "your-key"');
+    process.exit(1);
+  }
   const headers = { 'x-demo-key': demoKey };
 
   try {
@@ -105,6 +112,6 @@ async function runDemo() {
 }
 
 runDemo().catch(err => {
-  console.error('Demo run failed with error:', err);
+  console.error('\n❌ DEMO RUN STOPPED:', err.message);
   process.exit(1);
 });
