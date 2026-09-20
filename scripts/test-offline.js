@@ -20,41 +20,8 @@ delete process.env.WHATSAPP_ACCESS_TOKEN;
 delete process.env.WHATSAPP_PHONE_NUMBER_ID;
 
 // ---- fake Groq + Meta APIs -------------------------------------------------------------------------------------
-const realFetch = global.fetch;
-let failGroq = false;        // true: every Groq call answers 401
-let confirmsAsString = false; // true: the verification model answers {"confirms":"false"} (a string)
-const waSent = [];
-const PLACES = ['Agege market', 'Mile 12 market', 'Ijegun', 'Oshodi', 'Ikorodu'];
-function classify(text) {
-  const t = text.toLowerCase();
-  let place = null;
-  for (const p of PLACES) if (t.includes(p.toLowerCase().split(' ')[0])) place = p;
-  if (t.includes('agaigee')) place = 'Agege market';
-  if (!place && /at the market/.test(t)) place = 'market';
-  if (/what time|hello/.test(t) && !/armed|fight|weapon/.test(t)) return { is_incident: false, type: 'Transparency', severity: 'Low', urgency: 'Low', location_text: null };
-  if (/\b(armed|weapon|weapons|gun|guns|wepon)\b/.test(t)) return { is_incident: true, type: 'Safety', severity: 'High', urgency: 'High', location_text: place };
-  if (/fight|traders/.test(t)) return { is_incident: true, type: 'Stability', severity: 'Medium', urgency: 'Medium', location_text: place };
-  return { is_incident: true, type: 'Transparency', severity: 'Medium', urgency: 'Medium', location_text: place };
-}
-global.fetch = async (url, opts = {}) => {
-  const u = String(url);
-  if (u.includes('graph.facebook.com') && u.endsWith('/messages')) { waSent.push(JSON.parse(opts.body).text.body); return new Response(JSON.stringify({ messages: [{ id: 'wamid.1' }] }), { status: 200 }); }
-  if (u.includes('graph.facebook.com/v20.0/')) return new Response(JSON.stringify({ url: 'https://media.example/x', mime_type: 'audio/ogg' }), { status: 200 });
-  if (u.startsWith('https://media.example/')) return new Response(new Uint8Array([1, 2, 3, 4]), { status: 200 });
-  if (u.includes('api.groq.com')) {
-    if (failGroq) return new Response(JSON.stringify({ error: { message: 'Invalid API Key' } }), { status: 401 });
-    if (u.includes('audio/transcriptions')) return new Response(JSON.stringify({ text: 'Wetin dey happen for Oshodi bridge, some men with weapon dey there.' }), { status: 200 });
-    const content = JSON.parse(opts.body).messages.map(m => m.content).join('\n');
-    const report = (content.match(/<report>\s*([\s\S]*?)\s*<\/report>/) || [null, content])[1];
-    let out;
-    if (/verification AI/.test(content)) {
-      const yes = /(calm|back to normal|reopened)/i.test(report) && !/not calm|still/i.test(report);
-      out = confirmsAsString ? { confirms: 'false' } : { confirms: yes };
-    } else out = classify(report);
-    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(out) }, finish_reason: 'stop' }] }), { status: 200 });
-  }
-  return realFetch(url, opts);
-};
+const { installFakeApis, state } = require('./lib/fake-apis');
+installFakeApis();
 
 // ---- app under test ---------------------------------------------------------------------------------------------
 const app = require('../src/app');
@@ -112,16 +79,16 @@ const PG = 'Wetin dey happen for Agege market na serious o. Some men with weapon
   check('second independent report merges and reaches Accepted', c.id === id1 && c.status === 'Accepted');
   await api('POST', `/api/cases/${id1}/advance`, {}); r = await api('POST', `/api/cases/${id1}/advance`, {});
   check('advanced to Claimed Resolved', r.json.case.status === 'Claimed Resolved');
-  failGroq = true;
+  state.failGroq = true;
   r = await api('POST', `/api/cases/${id1}/verify`, { text: 'The area is calm now, shops have reopened' });
   check('model unavailable -> HTTP 503 (no keyword fallback)', r.status === 503, 'status=' + r.status);
-  failGroq = false;
+  state.failGroq = false;
   r = await api('GET', `/api/cases/${id1}`);
   check('the case is unchanged after the failed verification', r.json.case.status === 'Claimed Resolved');
-  confirmsAsString = true;
+  state.confirmsAsString = true;
   r = await api('POST', `/api/cases/${id1}/verify`, { text: 'The area is calm now, shops have reopened' });
   check('the string "false" from the model is not a confirmation', !(r.json && r.json.confirmed === true));
-  confirmsAsString = false;
+  state.confirmsAsString = false;
   r = await api('POST', `/api/cases/${id1}/verify`, { text: 'It is not calm at all, the men are still there.' });
   check('"not calm" is not confirmed', r.json && r.json.confirmed === false);
   r = await api('POST', `/api/cases/${id1}/verify`, { text: 'Things are back to normal, shops have reopened' });
@@ -139,18 +106,18 @@ const PG = 'Wetin dey happen for Agege market na serious o. Some men with weapon
 
   console.log('--- fallback counter');
   const before = classifier.getFallbackCount();
-  failGroq = true; r = await send('Some traders are fighting at Ikorodu garage'); failGroq = false;
+  state.failGroq = true; r = await send('Some traders are fighting at Ikorodu garage'); state.failGroq = false;
   check('a keyword-fallback classification is counted and flagged', classifier.getFallbackCount() === before + 1 && r.json.case.classified_by === 'fallback');
 
   console.log('--- WhatsApp webhook');
   process.env.WHATSAPP_ACCESS_TOKEN = 'offline-meta-token'; process.env.WHATSAPP_PHONE_NUMBER_ID = 'offline-phone-id';
-  await reset(); waSent.length = 0;
+  await reset(); state.waSent.length = 0;
   await api('POST', '/webhook', waPayload({ from: '2348000000001', type: 'text', text: { body: 'Water pipe burst at Ijegun, no water for days' } }));
   await sleep(700);
   r = await api('GET', '/api/cases');
   check('WhatsApp text (development, no secret) creates a case', r.json.cases.length === 1);
-  check('the WhatsApp receipt says the report is NOT verified yet', waSent.length === 1 && /NOT verified yet|assigned to/i.test(waSent[0]) && !/verified and logged/i.test(waSent[0]));
-  await reset(); waSent.length = 0;
+  check('the WhatsApp receipt says the report is NOT verified yet', state.waSent.length === 1 && /NOT verified yet|assigned to/i.test(state.waSent[0]) && !/verified and logged/i.test(state.waSent[0]));
+  await reset(); state.waSent.length = 0;
   await api('POST', '/webhook', waPayload({ from: '2348000000002', type: 'audio', audio: { id: 'media-1', mime_type: 'audio/ogg' } }));
   await sleep(900);
   r = await api('GET', '/api/cases');
@@ -175,10 +142,10 @@ const PG = 'Wetin dey happen for Agege market na serious o. Some men with weapon
   check('a correctly signed webhook is accepted and creates a case', r.status === 200 && cs2 === 1, 'status=' + r.status + ' cases=' + cs2);
   process.env.NODE_ENV = 'development'; delete process.env.WHATSAPP_APP_SECRET;
 
-  await reset(); waSent.length = 0;
+  await reset(); state.waSent.length = 0;
   for (let i = 0; i < 11; i++) await api('POST', '/webhook', waPayload({ from: '2348000000099', type: 'text', text: { body: 'Water pipe burst near house number ' + i } }));
   await sleep(2500);
-  check('one sender is limited to 10 messages per 10 minutes (11th ignored)', waSent.length === 10, 'replies=' + waSent.length);
+  check('one sender is limited to 10 messages per 10 minutes (11th ignored)', state.waSent.length === 10, 'replies=' + state.waSent.length);
 
   const passed = results.filter(Boolean).length;
   console.log(`\n${passed}/${results.length} checks passed`);
