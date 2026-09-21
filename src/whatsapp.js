@@ -202,6 +202,7 @@ async function processIncomingMessage(message) {
     isVoice,
     transcript,
     transcribedBy,
+    source: 'WhatsApp',
     reporter: from,
     notifyTo: from
   });

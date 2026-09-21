@@ -5,7 +5,7 @@ const multer = require('multer');
 
 const crypto = require('crypto');
 const { classifyReport, maskPrivacy, getActorAndSla } = require('./classifier');
-const { createCase, updateCase, findMatchingCase, getAllCases, getCaseById, runInTransaction } = require('./db');
+const { createCase, updateCase, addSource, findMatchingCase, getAllCases, getCaseById, runInTransaction } = require('./db');
 const { calculateConfidenceScore } = require('./confidence');
 const { transcribeAudio } = require('./transcribe');
 const { fuzzyMatchLocation } = require('./location');
@@ -224,10 +224,20 @@ function getEvidenceText(item) {
  * Core intake processing logic for reports (text or voice).
  * Matching, deduplication, and case updates are performed inside a synchronous SQLite transaction.
  */
-async function processReportIntake({ text, inputLat, inputLng, isVoice = false, transcript = null, transcribedBy = null, reporter = null, notifyTo = null }) {
+/**
+ * Clean the name of the application a report came from: letters, numbers, spaces and . _ ( ) - only, at most 40 characters.
+ */
+function cleanSourceName(value) {
+  if (value === undefined || value === null) return null;
+  const cleaned = String(value).replace(/[^\p{L}\p{N} ._()\-]/gu, '').replace(/\s+/g, ' ').trim().substring(0, 40);
+  return cleaned || null;
+}
+
+async function processReportIntake({ text, inputLat, inputLng, isVoice = false, transcript = null, transcribedBy = null, reporter = null, notifyTo = null, source = null }) {
   // Truncate report text to 1000 chars and apply privacy masking
   let reportText = maskPrivacy(text.trim().substring(0, 1000));
   let maskedTranscript = transcript ? maskPrivacy(transcript.trim().substring(0, 1000)) : null;
+  const cleanSource = cleanSourceName(source);
 
   // 1. Classification via LLM / Hardened Fallback
   const classification = await classifyReport(reportText, { isVoice });
@@ -459,7 +469,8 @@ async function processReportIntake({ text, inputLat, inputLng, isVoice = false, 
     }
 
     // Save updated case record to DB inside transaction
-    const savedCase = updateCase(targetCase.id, targetCase);
+    let savedCase = updateCase(targetCase.id, targetCase);
+    if (cleanSource) savedCase = addSource(savedCase.id, cleanSource) || savedCase;
 
     return {
       success: true,
@@ -591,7 +602,8 @@ app.post('/api/reports', intakeRateLimiter, async (req, res) => {
       text: reportText,
       inputLat: req.body.lat,
       inputLng: req.body.lng,
-      reporter: reporterId
+      reporter: reporterId,
+      source: req.body.source
     });
 
     if (result.duplicate) {
@@ -647,7 +659,8 @@ app.post('/api/reports/voice', intakeRateLimiter, upload.any(), async (req, res)
       isVoice: true,
       transcript: transcriptionResult.text,
       transcribedBy: transcriptionResult.transcribedBy,
-      reporter: reporterId
+      reporter: reporterId,
+      source: req.body.source
     });
 
     if (result.duplicate) {

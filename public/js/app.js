@@ -454,6 +454,10 @@ function renderTrustReceipt() {
   // Evidence calculation
   const filteredEvidence = getFilteredEvidence(caseRecord.evidence);
   const evidenceCount = filteredEvidence.length;
+  const sourceList = Array.isArray(caseRecord.sources) ? caseRecord.sources : [];
+  const sourcesHtml = sourceList.length
+    ? `<div class="case-sources" style="margin-top: 4px; font-size: 0.85rem;"><strong>Sources:</strong> ${sourceList.map(s => escapeHtml(s)).join(', ')} <span style="color: var(--text-muted);">(${sourceList.length} source${sourceList.length !== 1 ? 's' : ''})</span></div>`
+    : '';
 
   const hasVoice = Boolean(
     caseRecord.transcript ||
@@ -555,6 +559,7 @@ function renderTrustReceipt() {
               (${hasGeo ? 'geolocation tagged' : 'no GPS'}, ${hasVoice ? 'voice media' : 'text signal'})
             </span>
           </span>
+          ${sourcesHtml}
           <div class="evidence-box" style="margin-top: 6px;">
             ${filteredEvidence.map(ev => {
               const isVoiceObj = typeof ev === 'object' && (ev.type === 'voice' || ev.transcript);
@@ -699,6 +704,7 @@ function setupFormHandlers() {
       if (hasAudio) {
         const formData = new FormData();
         formData.append('audio', audioInput.files[0]);
+        formData.append('source', 'Relay web');
         if (text) formData.append('text', text);
         if (lat) formData.append('lat', lat);
         if (lng) formData.append('lng', lng);
@@ -713,6 +719,7 @@ function setupFormHandlers() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text,
+            source: 'Relay web',
             lat: lat ? Number(lat) : undefined,
             lng: lng ? Number(lng) : undefined
           })

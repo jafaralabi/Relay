@@ -50,7 +50,8 @@ const newColumns = [
   { name: 'demo_scripted', type: 'INTEGER DEFAULT 0' },
   { name: 'demo_seed', type: 'INTEGER DEFAULT 0' },
   { name: 'reporter_hash', type: 'TEXT DEFAULT NULL' },
-  { name: 'notify_to', type: 'TEXT DEFAULT NULL' }
+  { name: 'notify_to', type: 'TEXT DEFAULT NULL' },
+  { name: 'sources', type: "TEXT DEFAULT '[]'" }
 ];
 
 for (const col of newColumns) {
@@ -115,6 +116,7 @@ function rowToCase(row) {
     transcript: row.transcript || null,
     classified_by: row.classified_by || 'llm',
     history: safeParseJson(row.history, []),
+    sources: safeParseJson(row.sources, []),
     created_at: row.created_at,
     updated_at: row.updated_at
   };
@@ -368,8 +370,26 @@ function clearCases() {
   db.prepare('DELETE FROM cases').run();
 }
 
+/**
+ * Record which application a report came from. A case keeps each source once, in the order they first reported.
+ */
+function addSource(id, name) {
+  if (!name) return getCaseById(id);
+  const row = db.prepare('SELECT sources FROM cases WHERE id = ?').get(id);
+  if (!row) return null;
+  let list = [];
+  try { list = JSON.parse(row.sources || '[]'); } catch (e) { list = []; }
+  if (!Array.isArray(list)) list = [];
+  if (!list.includes(name)) {
+    list.push(name);
+    db.prepare('UPDATE cases SET sources = ? WHERE id = ?').run(JSON.stringify(list), id);
+  }
+  return getCaseById(id);
+}
+
 module.exports = {
   db,
+  addSource,
   createCase,
   updateCase,
   findMatchingCase,
