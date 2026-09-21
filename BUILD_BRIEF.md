@@ -35,7 +35,7 @@ Four **equally weighted** criteria:
 - **Pitch deck:** **PDF only** — up to 100MB (build it in whatever tool, export to PDF before submitting)
 - **Written summary:** must explicitly cover four things — (1) your track, (2) your information sources, (3) your approach to trust and accuracy, (4) how you used AI tools. Build `SUMMARY.md` against this exact structure, not a generic write-up.
 
-Rule confirmed from the brief: *"Please refrain from using AI to generate your capstone idea."* We're clean here — the idea came from human-directed multi-pass market research, not an AI brainstorm — and the written summary should say this plainly, since it directly answers a stated rule.
+Rule confirmed from the brief: *"Please refrain from using AI to generate your capstone idea."* The written summary states exactly how AI was used: AI assistants helped gather and compare research, and the author chose the problem, Relay and its scope. It says this plainly, since it directly answers a stated rule.
 
 ---
 
@@ -194,8 +194,7 @@ word for it.
 point back to the core model in the full spec doc]
 
 ## How we used AI tools
-[Idea origination: human-directed, multi-pass market research — not AI-generated,
-per the challenge rule. Build: [Jules / your coding agent] used for the majority of the
+[Idea origination: the author chose the problem, Relay and its scope; AI assistants were used to gather and compare research. Build: [Jules / your coding agent] used for the majority of the
 codebase, working from BUILD_BRIEF.md and the five GitHub issues — be specific about what
 the agent built vs. what was directed/reviewed by hand. Runtime: Groq-hosted GPT-OSS 120B
 and Whisper Large V3 power the app's own classification and transcription at runtime —

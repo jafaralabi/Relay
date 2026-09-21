@@ -173,6 +173,21 @@ curl -X POST http://localhost:3000/api/reports -H "Content-Type: application/jso
 curl http://localhost:3000/api/cases
 ```
 
+## Open source and distribution
+
+Relay is open source (MIT) and is meant to sit underneath the tools that already reach people, not to compete with them.
+
+- **Open standard:** the API and case schema ([`docs/openapi.yaml`](./docs/openapi.yaml)), the status schema and the verification rules.
+- **Open-source clients:** this dashboard, the report form, WhatsApp intake, and an **embeddable widget**. A service that reaches last-mile
+  communities adds one line, `<script src="https://YOUR-RELAY-HOST/embed.js" data-source="YourAppName"></script>`, and its customers get a
+  "Report a problem" button and a case tracker. Try it at `/embed-demo.html` (a simulated partner website).
+- **Shared infrastructure:** the case registry, matching and verification, and the connections to responders and oversight bodies stay
+  operated as the network layer, so every embedded client contributes to one record.
+
+Built: MIT licence, the API, web clients, WhatsApp webhook, embeddable widget, partner simulator. Roadmap: SDKs, federation for
+self-hosted copies, a governance group, a partner directory. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) and
+[`docs/PARTNER_FRAMEWORK.md`](./docs/PARTNER_FRAMEWORK.md).
+
 ## Tech stack
 
 | Layer | Choice |
@@ -227,9 +242,10 @@ Never commit `.env`; it is git-ignored.
 
 ## Built with AI coding tools
 
-**Idea origination:** the capstone idea was not AI-generated. It came from a multi-pass,
-human-directed market research process, in line with the challenge's rule that AI tools should support
-the build, not originate the idea.
+**Idea origination:** I chose the problem, the concept (Relay) and its scope myself. I used AI assistants
+to gather and compare research on existing African civic-tech tools and on possible directions; that research
+informed the decision but did not make it. The challenge asks that AI not be used to generate the capstone
+idea, so this section says exactly where AI was and was not used.
 
 **Build:** the backend, web interface and WhatsApp integration were written mostly by **Jules**
 (Google's asynchronous coding agent). Each piece was a GitHub issue written against

@@ -36,6 +36,7 @@ Base URL: `https://<host>/api` (a local run today; the OpenAPI file is `docs/ope
 | Responder actions | `POST /api/cases/{id}/actions` (accept, update, claim resolved) by authenticated responders | Roadmap (simulated in the demo) |
 | Search and related-case lookup | `GET /api/cases?place=&type=&status=` and `GET /api/cases/related?text=` | Roadmap |
 | Notifications | Webhooks or subscriptions when a case in a partner's area changes | Roadmap |
+| Embed in your own product | `<script src=".../embed.js" data-source="YourAppName"></script>` adds a Report button and case tracker | Built |
 
 **What a partner provides:** the report text (or a voice note), a place or coordinates when known, its source name, and consent to
 share the report under the access classes below.
@@ -67,7 +68,41 @@ aggregate views). **4. Protected-case handler** (organisations designated for se
 | Restricted | Fuller detail and aggregate data for verified regulators, NGOs and government bodies | Roadmap |
 | Protected | Sensitive cases (gender-based violence, whistleblowers, minors), visible only to designated organisations | Designed for, not built |
 
-## 6. How it would be run
+## 6. Open source and distribution model
+
+Relay is not meant to compete with the tools that already reach people. It is meant to sit underneath them, and to be easy to adopt.
+
+| Layer | What it is | Who maintains it |
+| --- | --- | --- |
+| **Open standard** | The API and case schema (OpenAPI 3.1), the status schema, the verification rules and the access classes | Published openly; changes agreed with partners |
+| **Open-source clients** | The web dashboard, the report form, WhatsApp intake, the embeddable widget, the partner-app simulator | Open source under the MIT licence; community contributions welcome |
+| **Shared infrastructure** | The case registry, matching and verification, the partner directory and routing, access classes, the audit trail | Operated and maintained as the network layer that connects everyone |
+
+**Distribution by embedding.** A service that already reaches last-mile communities (energy, water, agriculture, health, mobile money agents)
+adds one script line and offers "Report a problem" and "Track a case" as a value-added service. The reports carry its name as the
+source and join the shared record, so it gains a feature and Relay gains distribution, without anyone leaving their day-to-day product.
+The widget is built (`public/embed.js`, demo at `/embed-demo.html`).
+
+**Two ways to run it.** (1) *Thin embed*: the client calls the shared API, so every report joins one record and the network effect is preserved.
+This is what exists today. (2) *Self-hosted*: an organisation runs its own copy for its context and forwards cases to the shared
+registry (federation). This is roadmap; without it, self-hosting would split the record.
+
+**Direct collection.** Relay also collects directly through the WhatsApp Cloud API (text and voice notes; built, tested offline, not yet live).
+Partners can bring their own WhatsApp number; for production, Meta's business verification, opt-in and message-template rules apply.
+
+**Sustaining it (open questions).** Community maintenance needs a small governance group and a contribution process. Running the shared
+layer needs funding: grants and institutional partners first, then hosted-service fees for large users, with community and NGO use free.
+Open embeds invite spam, so partner keys, quotas and source reputation come before scale.
+
+## 7. Partnership: what we ask for
+
+1. **Co-design the standard** with the Open Society Foundations and other partners: the case schema, responder categories, access classes and governance.
+2. **A pilot:** one city, two data partners, and two responder categories (for example local-government works and community mediators).
+3. **Data-sharing agreements and a privacy policy** agreed before real cases are assigned.
+4. **A convening group** for governance, so that no single organisation owns the record.
+5. **Measures agreed up front:** time to acknowledgement, share independently verified, duplicate-merge rate, and resolution times.
+
+## 8. How it would be run
 
 1. **Choose a pilot area** and add its places and its responsible actors and SLAs to the two configuration files (`data/locations.json`, `data/actors.json`).
 2. **Onboard one or two data partners** who send signals through the open API under their own source name.
@@ -76,7 +111,7 @@ aggregate views). **4. Protected-case handler** (organisations designated for se
 5. **Measure in public:** time to acknowledgement, share of cases independently verified, duplicate-merge rate, and resolution times per responder.
 6. **Grow by connection, not construction:** every new aggregator or agency adds configuration and a connector, not a new product.
 
-## 7. Trust and governance rules
+## 9. Trust and governance rules
 
 - **Neutral by design:** Relay does not own the front ends or the response, so partners can compete on service and cooperate on the record.
 - **Source accountability:** every report names its source; later, source reputation will weight corroboration so that spam from one source cannot verify a case.
@@ -84,12 +119,12 @@ aggregate views). **4. Protected-case handler** (organisations designated for se
 - **Privacy first:** masking, hashing of reporter identifiers, rounded coordinates, rate limits, and access classes.
 - **Open contract:** the API is published so anyone can integrate, audit and build on it.
 
-## 8. Built today and roadmap
+## 10. Built today and roadmap
 
 | Built (proof of concept) | Roadmap |
 | --- | --- |
-| Open intake from any source with a source name; text, voice, WhatsApp | Partner keys, source reputation, rate limits per partner |
+| Open intake from any source with a source name; text, voice, WhatsApp; embeddable widget; MIT licence | Partner keys, source reputation, rate limits per partner; SDKs |
 | Classification, place matching, matching and merging across sources | Aggregator connectors for existing datasets |
 | Corroboration rules and confidence score; independent verification; status schema; Trust Receipt | Responder accounts and integrations; real SLAs |
 | Public read API with masking; OpenAPI specification | Restricted and Protected classes; regulator views; search and alerts |
-| Simulated responders, clearly labelled | Live WhatsApp rollout, more languages and regions |
+| Simulated responders, clearly labelled | Live WhatsApp rollout, more languages and regions; federation for self-hosted copies; governance group |
