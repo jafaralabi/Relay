@@ -1,0 +1,15 @@
+0:00 Title card
+0:09 Problem card
+0:19 How it plugs together
+0:30 Reset database
+0:34 Dashboard initial state
+0:41 English Agege report
+0:57 Pidgin corroborating report
+1:14 Responder claims resolution
+1:21 Independent verification & Trust Receipt
+1:34 Scripted demo routing comparison
+2:03 Interactive map & stage icons
+2:13 Partner app simulator & multi-source merge
+2:34 Embeddable widget
+2:47 Developers page & open API
+3:08 Closing card
