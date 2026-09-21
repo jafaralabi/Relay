@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relay Developers: API and partner access</title>
+  <style>
+    :root { --navy: #0f172a; --blue: #1d4ed8; --ink: #111827; --muted: #475569; --line: #cbd5e1; --bg: #f8fafc; --green: #047857; --amber: #b45309; --violet: #6d28d9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); line-height: 1.5; }
+    header { background: var(--navy); color: #fff; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 4px solid var(--blue); }
+    header h1 { margin: 0; font-size: 1.25rem; } header p { margin: 2px 0 0; font-size: 0.85rem; color: #94a3b8; }
+    header a { color: #93c5fd; text-decoration: none; font-size: 0.9rem; }
+    main { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
+    h2 { margin: 30px 0 8px; font-size: 1.2rem; } h3 { margin: 0 0 4px; font-size: 1rem; }
+    .banner { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; padding: 12px 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 10px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+    .tag { display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; color: #fff; vertical-align: middle; }
+    .built { background: var(--green); } .roadmap { background: var(--amber); } .preview { background: var(--violet); }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    th { background: #f1f5f9; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.85rem; }
+    pre { background: #0b1220; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 6px 0; }
+    .wrap { overflow-x: auto; }
+    .tabs button { font: inherit; border: 1px solid var(--line); background: #fff; padding: 6px 12px; border-radius: 8px 8px 0 0; cursor: pointer; }
+    .tabs button[aria-selected="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+    button.primary { font: inherit; font-weight: 600; background: var(--blue); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+    button.copy { font: inherit; font-size: 0.8rem; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+    label { display: block; font-weight: 600; margin: 10px 0 4px; font-size: 0.9rem; }
+    input, select { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; width: 100%; max-width: 420px; background: #fff; }
+    .warn { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 10px 12px; font-size: 0.9rem; margin-top: 10px; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    #tryOut { max-height: 320px; overflow: auto; }
+    footer { color: var(--muted); font-size: 0.85rem; margin-top: 34px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>Relay Developers</h1><p>One open API: send signals in, read the shared record, add responders.</p></div>
+    <nav><a href="/">Dashboard</a> &nbsp;|&nbsp; <a href="/partner-demo.html">Partner app simulator</a> &nbsp;|&nbsp; <a href="/openapi.yaml">OpenAPI (YAML)</a></nav>
+  </header>
+  <main>
+    <div class="banner"><strong>Status:</strong> the API is open today and needs no key; intake is rate limited. Partner keys, responder accounts and
+      regulator views are on the roadmap and are marked below. Nothing on this page hides that.</div>
+
+    <h2>What you can do</h2>
+    <div class="grid">
+      <div class="card"><h3>Send signals <span class="tag built">BUILT</span></h3><p class="muted">Post a report as text or a voice note and name your application as the source. Relay classifies it, finds the place, and merges it into an existing case when it is the same problem.</p></div>
+      <div class="card"><h3>Read the shared record <span class="tag built">BUILT</span></h3><p class="muted">Look up any case: status, responsible owner, SLA, history, sources and independent verification, with sensitive details masked.</p></div>
+      <div class="card"><h3>Respond and oversee <span class="tag roadmap">ROADMAP</span></h3><p class="muted">Responder accounts that accept assignments and post actions; regulator and NGO views; alerts when a case in your area changes.</p></div>
+    </div>
+
+    <h2>Quickstart</h2>
+    <p class="muted">Base URL: <code id="base"></code></p>
+    <div class="tabs" role="tablist" aria-label="Examples">
+      <button role="tab" aria-selected="true" data-tab="curl">curl</button>
+      <button role="tab" aria-selected="false" data-tab="ps">PowerShell</button>
+      <button role="tab" aria-selected="false" data-tab="js">JavaScript</button>
+    </div>
+    <pre id="snippet"></pre>
+    <button class="copy" id="copySnippet" type="button">Copy example</button>
+
+    <h2>Endpoints</h2>
+    <div class="wrap"><table id="endpoints"><thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Access</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    <p class="muted">Full contract: <a href="/openapi.yaml">openapi.yaml</a> (OpenAPI 3.1). The demo controls are key-protected and are not part of a partner integration.</p>
+
+    <h2>Try it live</h2>
+    <button class="primary" id="tryBtn" type="button">GET /api/cases</button>
+    <p class="muted" id="tryNote">Reads the shared record from this server.</p>
+    <pre id="tryOut" hidden></pre>
+
+    <h2>Partner access <span class="tag preview">PREVIEW</span></h2>
+    <div class="card">
+      <p class="muted">This shows how partner onboarding will work. <strong>Preview only:</strong> the server does not check keys yet, so a key generated here does
+        nothing today. Keep sending your application's name in the <code>source</code> field. Planned key features: source attribution that cannot be spoofed,
+        per-partner rate limits, scopes by partner category, and source reputation.</p>
+      <label for="org">Organisation or application name</label>
+      <input id="org" maxlength="40" placeholder="For example CommunityWatch">
+      <label for="cat">Category</label>
+      <select id="cat">
+        <option>Data partner (sends signals)</option>
+        <option>Responder (accepts assignments)</option>
+        <option>Oversight (regulator or NGO view)</option>
+      </select>
+      <p><button class="primary" id="genBtn" type="button">Generate a preview key</button></p>
+      <div id="keyOut" hidden>
+        <div class="warn"><strong>Preview key (shown once, not enforced):</strong> <code id="keyVal"></code>
+          <button class="copy" id="copyKey" type="button">Copy</button></div>
+        <p class="muted">When keys are enforced you will send it as a header:</p>
+        <pre id="keySnippet"></pre>
+      </div>
+    </div>
+
+    <h2>Responder categories and access classes</h2>
+    <div class="grid">
+      <div class="card"><h3>Who connects</h3><p class="muted">Data partners and aggregators; government agencies and local government; security and police liaison; NGOs and civil society; community responders and mediators; regulators and oversight bodies.</p></div>
+      <div class="card"><h3>Public <span class="tag built">BUILT</span></h3><p class="muted">Masked text, rounded coordinates, status, owner, SLA, history and sources.</p></div>
+      <div class="card"><h3>Restricted <span class="tag roadmap">ROADMAP</span></h3><p class="muted">Fuller detail and aggregate data for verified regulators, NGOs and government bodies.</p></div>
+      <div class="card"><h3>Protected <span class="tag roadmap">DESIGNED FOR</span></h3><p class="muted">Sensitive cases (gender-based violence, whistleblowers, minors), visible only to designated organisations.</p></div>
+    </div>
+
+    <footer>Relay is a proof of concept built for the Andela x Open Society Foundations "Information You Can Trust" challenge. Responder behaviour in the demo is simulated.</footer>
+  </main>
+  <script>
+    const origin = location.origin;
+    document.getElementById('base').textContent = origin;
+    const snippets = {
+      curl: `curl -X POST ${origin}/api/reports \\\n  -H "Content-Type: application/json" \\\n  -d '{"text":"The borehole at Ijegun primary school has been broken for two weeks.","source":"YourAppName"}'\n\ncurl ${origin}/api/cases`,
+      ps: `$body = @{ text = "The borehole at Ijegun primary school has been broken for two weeks."; source = "YourAppName" } | ConvertTo-Json\nInvoke-RestMethod -Method Post -Uri "${origin}/api/reports" -ContentType "application/json" -Body $body\n\n(Invoke-RestMethod -Uri "${origin}/api/cases").cases | Select-Object id, status, type, location_text, sources`,
+      js: `const res = await fetch("${origin}/api/reports", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ text: "The borehole at Ijegun primary school has been broken for two weeks.", source: "YourAppName" })\n});\nconst { case: relayCase } = await res.json();\nconsole.log(relayCase.id, relayCase.status, relayCase.sources);`
+    };
+    let tab = 'curl';
+    const snippetEl = document.getElementById('snippet');
+    function renderSnippet() { snippetEl.textContent = snippets[tab]; }
+    document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+      tab = b.dataset.tab; document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', String(x === b))); renderSnippet();
+    }));
+    renderSnippet();
+    async function copy(text, btn) {
+      try { await navigator.clipboard.writeText(text); const old = btn.textContent; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = old; }, 1200); }
+      catch (e) { btn.textContent = 'Copy failed'; }
+    }
+    document.getElementById('copySnippet').addEventListener('click', e => copy(snippets[tab], e.target));
+
+    const endpoints = [
+      ['POST', '/api/reports', 'Send a text report; optional source, lat, lng, reporter. Creates or joins a case.', 'Open, rate limited', 'built'],
+      ['POST', '/api/reports/voice', 'Send a voice note (multipart: audio, source). Transcribed by Whisper.', 'Open, rate limited', 'built'],
+      ['GET', '/api/cases', 'List cases in the public view.', 'Open', 'built'],
+      ['GET', '/api/cases/{id}', 'One case: status, owner, SLA, history, sources, verification.', 'Open', 'built'],
+      ['GET', '/api/health', 'Service health.', 'Open', 'built'],
+      ['POST', '/webhook', 'WhatsApp Cloud API messages (signed by Meta).', 'Signature', 'built'],
+      ['POST', '/api/cases/{id}/advance', 'Advance a simulated responder step (demo only).', 'Demo key', 'built'],
+      ['POST', '/api/cases/{id}/verify', 'Submit an independent confirmation; the model decides.', 'Demo key', 'built'],
+      ['GET', '/api/cases?place=&type=&status=', 'Filtered lookup.', 'Open', 'roadmap'],
+      ['GET', '/api/cases/related?text=', 'Has this already been reported, and what was done?', 'Partner key', 'roadmap'],
+      ['POST', '/api/cases/{id}/actions', 'Responder accepts, updates or claims resolution.', 'Responder key', 'roadmap'],
+      ['POST', '/api/subscriptions', 'Notify a partner when a case in its area changes.', 'Partner key', 'roadmap']
+    ];
+    const tbody = document.querySelector('#endpoints tbody');
+    endpoints.forEach(([m, p, d, a, s]) => {
+      const tr = document.createElement('tr');
+      [m, p, d, a].forEach((v, i) => { const td = document.createElement('td'); if (i < 2) { const c = document.createElement('code'); c.textContent = v; td.appendChild(c); } else td.textContent = v; tr.appendChild(td); });
+      const td = document.createElement('td'); const tag = document.createElement('span'); tag.className = 'tag ' + s; tag.textContent = s.toUpperCase(); td.appendChild(tag); tr.appendChild(td);
+      tbody.appendChild(tr);
+    });
+
+    const tryOut = document.getElementById('tryOut');
+    document.getElementById('tryBtn').addEventListener('click', async () => {
+      tryOut.hidden = false; tryOut.textContent = 'Loading...';
+      try {
+        const res = await fetch('/api/cases'); const data = await res.json();
+        const rows = (data.cases || []).slice(0, 3).map(c => ({ id: c.id, status: c.status, type: c.type, place: c.location_text, owner: c.responsible_actor, sla: c.sla, sources: c.sources }));
+        document.getElementById('tryNote').textContent = 'HTTP ' + res.status + ': ' + (data.cases || []).length + ' case(s); showing up to 3.';
+        tryOut.textContent = JSON.stringify(rows, null, 2);
+      } catch (e) { tryOut.textContent = 'Error: ' + e.message; }
+    });
+
+    function randomKey() {
+      const bytes = new Uint8Array(18); crypto.getRandomValues(bytes);
+      let bin = ''; bytes.forEach(b => { bin += String.fromCharCode(b); });
+      return 'rk_preview_' + btoa(bin).replace(/[+/=]/g, '').slice(0, 24);
+    }
+    let currentKey = '';
+    document.getElementById('genBtn').addEventListener('click', () => {
+      const name = document.getElementById('org').value.trim();
+      if (name.length < 3) { document.getElementById('org').focus(); return; }
+      currentKey = randomKey();
+      document.getElementById('keyVal').textContent = currentKey;
+      document.getElementById('keySnippet').textContent = `curl -X POST ${origin}/api/reports \\\n  -H "x-relay-key: ${currentKey}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"text":"...","source":"${name.replace(/[^\p{L}\p{N} ._()-]/gu, '').slice(0, 40)}"}'`;
+      document.getElementById('keyOut').hidden = false;
+    });
+    document.getElementById('copyKey').addEventListener('click', e => copy(currentKey, e.target));
+  </script>
+</body>
+</html>
