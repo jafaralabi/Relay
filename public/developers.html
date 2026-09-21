@@ -66,6 +66,15 @@
     <div class="wrap"><table id="endpoints"><thead><tr><th>Method</th><th>Path</th><th>Purpose</th><th>Access</th><th>Status</th></tr></thead><tbody></tbody></table></div>
     <p class="muted">Full contract: <a href="/openapi.yaml">openapi.yaml</a> (OpenAPI 3.1). The demo controls are key-protected and are not part of a partner integration.</p>
 
+    <h2>Embed Relay in your product <span class="tag built">BUILT</span></h2>
+    <div class="card">
+      <p class="muted">Services that reach last-mile communities can add a "Report a problem" button and a case tracker to their own site or app with one line.
+        Reports carry your application's name as the source and join the shared record. The widget calls only the public API and stores nothing in the browser.</p>
+      <pre id="embedSnippet"></pre>
+      <p class="muted">Optional attributes: <code>data-label</code>, <code>data-color</code> (#RRGGBB), <code>data-api</code>. See it on a simulated partner website:
+        <a href="/embed-demo.html">/embed-demo.html</a>. The public read and report endpoints allow cross-origin calls; demo controls and the WhatsApp webhook do not.</p>
+    </div>
+
     <h2>Try it live</h2>
     <button class="primary" id="tryBtn" type="button">GET /api/cases</button>
     <p class="muted" id="tryNote">Reads the shared record from this server.</p>
@@ -106,6 +115,7 @@
   <script>
     const origin = location.origin;
     document.getElementById('base').textContent = origin;
+    document.getElementById('embedSnippet').textContent = '<script src="' + origin + '/embed.js" data-source="YourAppName"></script>';
     const snippets = {
       curl: `curl -X POST ${origin}/api/reports \\\n  -H "Content-Type: application/json" \\\n  -d '{"text":"The borehole at Ijegun primary school has been broken for two weeks.","source":"YourAppName"}'\n\ncurl ${origin}/api/cases`,
       ps: `$body = @{ text = "The borehole at Ijegun primary school has been broken for two weeks."; source = "YourAppName" } | ConvertTo-Json\nInvoke-RestMethod -Method Post -Uri "${origin}/api/reports" -ContentType "application/json" -Body $body\n\n(Invoke-RestMethod -Uri "${origin}/api/cases").cases | Select-Object id, status, type, location_text, sources`,
