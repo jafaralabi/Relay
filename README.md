@@ -243,9 +243,11 @@ Never commit `.env`; it is git-ignored.
 ## Built with AI coding tools
 
 **Idea origination:** I chose the problem, the concept (Relay) and its scope myself. I used AI assistants
-to gather and compare research on existing African civic-tech tools and on possible directions; that research
-informed the decision but did not make it. The challenge asks that AI not be used to generate the capstone
-idea, so this section says exactly where AI was and was not used.
+(Claude, ChatGPT, Perplexity and Gemini) to research what problems exist in African civic tech and to compare
+existing initiatives. The assistants also made recommendations; the decision to build Relay, and its design and
+scope, were mine, and the design developed well beyond those recommendations (for example the open, embeddable
+infrastructure model). The challenge asks that AI not be used to generate the capstone idea, so this section
+says exactly where AI was and was not used.
 
 **Build:** the backend, web interface and WhatsApp integration were written mostly by **Jules**
 (Google's asynchronous coding agent). Each piece was a GitHub issue written against
@@ -308,7 +310,7 @@ relay/
 
 ## Team
 
-Built by Jafar Alabi for the Andela x Open Society Foundations "Information You Can Trust"
+Built by Jafar Alabi Zubair for the Andela x Open Society Foundations "Information You Can Trust"
 Peace Tech Innovation Challenge, September 2026.
 
 ## License
