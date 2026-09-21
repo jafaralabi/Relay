@@ -1,0 +1,419 @@
+openapi: 3.1.0
+info:
+  title: Relay API
+  version: 0.1.0
+  summary: Open case registry for community signals, from report to independently verified resolution.
+  description: |
+    Relay is infrastructure under civic reporting tools. Any organisation or tool can send a signal into one shared
+    registry, look up whether something has already been reported, see who owns it and what was done, and read the
+    independent verification.
+
+    **What is built today (this specification):** open report intake (text, voice, WhatsApp webhook), automatic matching
+    of a new report to an existing open case at the same place and type (reports from different sources are merged and each
+    source is listed), duplicate detection, a public read API with
+    masked phone numbers and emails, hashed reporter identifiers and rounded coordinates, and key-protected demo
+    controls.
+
+    **What is roadmap (see `x-roadmap` at the end of this file):** partner API keys and source attribution, verified
+    regulator and NGO accounts with role-based views, confidentiality classes (Public, Restricted, Protected), search
+    and related-case lookup endpoints, and outbound notifications. None of these exist yet.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:3000
+    description: Local development
+tags:
+  - name: Intake
+    description: Send a signal into the registry.
+  - name: Cases
+    description: Read the public view of the registry.
+  - name: WhatsApp
+    description: Meta WhatsApp Cloud API webhook.
+  - name: Demo controls
+    description: Key-protected controls used by the demo and the test suites. Not part of a partner integration.
+  - name: Health
+paths:
+  /api/reports:
+    post:
+      tags: [Intake]
+      operationId: createReport
+      summary: Submit a text report
+      description: |
+        Classifies the report, finds its place, and either creates a new case or joins an existing OPEN case at the same
+        place and type as an independent corroborating report. Cases that are Claimed Resolved or closed are never
+        reopened; a new report about the same place creates a new case. An identical or near-identical report is
+        ignored as a duplicate. Messages that are not incident reports (for example a question) create no case.
+        Intake is rate limited to 10 reports per 10 minutes per client address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 1000
+                  description: The report, in English, Nigerian Pidgin or another language. Longer text is truncated.
+                lat:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                  description: Optional latitude. If omitted and a known place is found, the place's coordinates are used.
+                lng:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                reporter:
+                  type: string
+                  description: Optional identifier of the reporter. Stored only as a salted hash and never returned.
+                source:
+                  type: string
+                  maxLength: 40
+                  description: The name of the application or organisation the report comes from. Letters, numbers, spaces and . _ ( ) - only. A case lists each source once.
+            example:
+              text: There is a group of armed men gathering near the Agege market entrance, by the bus stop.
+      responses:
+        '201':
+          description: A new case was created, or the report joined an existing open case.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  case: {$ref: '#/components/schemas/Case'}
+        '200':
+          description: The report was a duplicate (nothing changed) or was not an incident (no case).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  duplicate: {type: boolean}
+                  note: {type: string}
+                  case:
+                    oneOf:
+                      - $ref: '#/components/schemas/Case'
+                      - type: 'null'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+  /api/reports/voice:
+    post:
+      tags: [Intake]
+      operationId: createVoiceReport
+      summary: Submit a voice note
+      description: |
+        Transcribes the audio (Whisper Large V3, prompted for Nigerian Pidgin and Lagos place names) and then behaves
+        like `POST /api/reports`. The transcript is stored on the case and may contain errors. If transcription fails
+        no case is created.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [audio]
+              properties:
+                audio: {type: string, format: binary, description: 'Audio file, up to 5 MB.'}
+                lat: {type: number}
+                lng: {type: number}
+                reporter: {type: string}
+                source: {type: string, description: 'Name of the sending application (see POST /api/reports).'}
+      responses:
+        '201':
+          description: A case was created or joined.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  case: {$ref: '#/components/schemas/Case'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '502':
+          description: Transcription failed; no case was created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  error: {type: string, example: transcription_failed}
+  /api/cases:
+    get:
+      tags: [Cases]
+      operationId: listCases
+      summary: List cases (public view)
+      description: |
+        Returns every case in the public view: phone numbers and email addresses in report text are masked, reporter
+        identifiers are never included, and coordinates are rounded to about 100 m. Filtering is not available yet
+        (see `x-roadmap`).
+      responses:
+        '200':
+          description: The list of cases, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cases:
+                    type: array
+                    items: {$ref: '#/components/schemas/Case'}
+  /api/cases/{id}:
+    get:
+      tags: [Cases]
+      operationId: getCase
+      summary: Get one case (public view)
+      description: Returns the case with its evidence, responsible actor, SLA, status history and any independent verification.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, example: RLA-5078}
+      responses:
+        '200':
+          description: The case.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  case: {$ref: '#/components/schemas/Case'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/health:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Service health
+      responses:
+        '200':
+          description: The service is running.
+  /webhook:
+    get:
+      tags: [WhatsApp]
+      operationId: verifyWebhook
+      summary: Meta webhook verification handshake
+      parameters:
+        - {name: hub.mode, in: query, schema: {type: string}}
+        - {name: hub.verify_token, in: query, schema: {type: string}}
+        - {name: hub.challenge, in: query, schema: {type: string}}
+      responses:
+        '200': {description: Echoes the challenge when the verify token matches.}
+        '403': {description: Verify token mismatch.}
+    post:
+      tags: [WhatsApp]
+      operationId: receiveWhatsAppMessage
+      summary: Receive WhatsApp messages (text and voice notes)
+      description: |
+        Meta signs each request with `X-Hub-Signature-256` (HMAC-SHA256 of the raw body with the app secret). Invalid or
+        missing signatures are refused with 403. In production the webhook refuses every request unless
+        `WHATSAPP_APP_SECRET` is set. Each sender is limited to 10 messages per 10 minutes.
+      parameters:
+        - {name: X-Hub-Signature-256, in: header, schema: {type: string}, description: 'sha256=<hex digest>'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, description: Meta WhatsApp Cloud API webhook payload.}
+      responses:
+        '200': {description: 'Accepted; processed in the background.'}
+        '403': {description: Invalid or missing signature.}
+  /api/cases/{id}/advance:
+    post:
+      tags: [Demo controls]
+      operationId: advanceCase
+      summary: Advance a case to its next responder step (simulated responder)
+      description: Moves Accepted, then In Progress, then Claimed Resolved. Never further. Cases marked as scripted demo routing cannot be advanced.
+      security: [{DemoKey: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: {type: string}
+                action: {type: string}
+                minutes_elapsed: {type: integer}
+      responses:
+        '200': {description: The updated case.}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {description: The case cannot move to another step from its current state.}
+  /api/cases/{id}/verify:
+    post:
+      tags: [Demo controls]
+      operationId: verifyCase
+      summary: Submit an independent confirmation
+      description: |
+        Only for a case at Claimed Resolved. The model decides whether the text confirms that the situation has calmed or
+        been resolved. If the model is unavailable the response is 503 and the case is unchanged; there is no keyword
+        fallback.
+      security: [{DemoKey: []}]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string}
+                reporter: {type: string, description: 'Must differ from the original reporters and the responder.'}
+      responses:
+        '200':
+          description: '`confirmed: true` closes the case at Independently Verified; `confirmed: false` leaves it unchanged.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: {type: boolean}
+                  confirmed: {type: boolean}
+                  case: {$ref: '#/components/schemas/Case'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '409': {description: 'The case is not at Claimed Resolved, or the confirmer is not independent.'}
+        '503': {description: Model unavailable; nothing changed.}
+  /api/demo/seed:
+    post:
+      tags: [Demo controls]
+      operationId: seedDemo
+      summary: Replace all data with three finished sample cases (no model calls)
+      security: [{DemoKey: []}]
+      responses:
+        '200': {description: The seeded cases.}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /api/demo/reset:
+    post:
+      tags: [Demo controls]
+      operationId: resetDemo
+      summary: Delete all cases
+      security: [{DemoKey: []}]
+      responses:
+        '200': {description: All cases deleted.}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+components:
+  securitySchemes:
+    DemoKey:
+      type: apiKey
+      in: header
+      name: x-demo-key
+      description: Shared secret for the demo controls (environment variable DEMO_KEY). Not a partner credential.
+  responses:
+    BadRequest:
+      description: The request was invalid.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unauthorized:
+      description: Missing or invalid demo key.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFound:
+      description: No such case.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    RateLimited:
+      description: Too many reports from this address. Try again in a few minutes.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: {type: string}
+    Status:
+      type: string
+      enum: [Signal, Corroborating, Verified, Assigned, Accepted, In Progress, Claimed Resolved, Independently Verified]
+    Case:
+      type: object
+      description: A case in the public view.
+      properties:
+        id: {type: string, example: RLA-5078}
+        status: {$ref: '#/components/schemas/Status'}
+        type: {type: string, enum: [Safety, Stability, Transparency]}
+        severity: {type: string, enum: [High, Medium, Low]}
+        urgency: {type: string, enum: [High, Medium, Low]}
+        confidence_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: A transparent heuristic. A single report is capped at 45, unverified cases at 95; 100 only after independent verification.
+        responsible_actor: {type: [string, 'null'], description: Taken from configuration, never from model text. Proposed until the case is Assigned.}
+        sla: {type: [string, 'null'], example: 30 minutes}
+        acknowledged_at: {type: [string, 'null'], format: date-time}
+        acknowledged_after_minutes: {type: [integer, 'null'], description: Simulated responder delay in this proof of concept.}
+        ack_simulated: {type: boolean}
+        action: {type: [string, 'null']}
+        resolution: {type: string, enum: [Pending, Claimed, Independently Verified]}
+        closed: {type: boolean, description: True only at Independently Verified.}
+        demo_scripted: {type: boolean, description: True for the scripted demo routing cases (Mile 12 market and Ijegun).}
+        demo_seed: {type: boolean}
+        evidence:
+          type: array
+          description: Reports that make up the case. A plain string is a text report; objects are voice reports or the independent verification.
+          items:
+            oneOf:
+              - type: string
+              - $ref: '#/components/schemas/EvidenceItem'
+        independent_verification:
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                at: {type: string, format: date-time}
+                text: {type: string}
+                t_plus_minutes: {type: integer}
+        raw_report: {type: string, description: 'The first report text, with phone numbers and email addresses masked.'}
+        lat: {type: [number, 'null'], description: Rounded to 3 decimals (about 100 m).}
+        lng: {type: [number, 'null']}
+        location_text: {type: [string, 'null'], description: Canonical place name when the place is in the gazetteer.}
+        transcript: {type: [string, 'null']}
+        classified_by: {type: string, description: 'The model that classified the report, or "fallback" for the keyword fallback.'}
+        history:
+          type: array
+          items: {$ref: '#/components/schemas/HistoryEntry'}
+        sources:
+          type: array
+          description: The applications or organisations that reported this problem, each listed once, in the order they first reported.
+          items: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    EvidenceItem:
+      type: object
+      properties:
+        type: {type: string, enum: [voice, independent_verification]}
+        text: {type: string}
+        transcript: {type: string}
+        at: {type: string, format: date-time}
+        t_plus_minutes: {type: integer}
+    HistoryEntry:
+      type: object
+      properties:
+        status: {$ref: '#/components/schemas/Status'}
+        at: {type: string, format: date-time}
+        note: {type: string}
+        t_plus_minutes: {type: integer}
+x-roadmap:
+  description: Planned, NOT implemented. Listed so partners can see the intended direction.
+  access-classes:
+    Public: Masked text, rounded coordinates, status and history. Implemented (the read endpoints above).
+    Restricted: Fuller detail and aggregate data for verified regulators, NGOs and government bodies. Not implemented.
+    Protected: Sensitive cases (for example gender-based violence, whistleblowers, minors) visible only to designated organisations. Designed for, not built.
+  planned-endpoints:
+    - GET /api/cases?place=&type=&status=&since= : filtered lookup.
+    - GET /api/cases/related?text= : "has this already been reported, and what was done?"
+    - POST /api/subscriptions : notify a partner when a case in its area changes status.
+  planned-authentication:
+    - Partner API keys with source attribution on every report.
+    - Verified regulator and NGO accounts with role-based views.

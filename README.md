@@ -1,8 +1,9 @@
 # Relay
 
-**Relay turns trusted community signals into accountable action.**
+**Relay is open resolution infrastructure for civic reporting in Africa: any source in, one verified case, accountable responders out.**
 
-AI-native signal-to-resolution infrastructure, built for the Andela x Open Society Foundations
+Like a payments switch, it lets many tools and many institutions connect once and share one record: signal-to-resolution
+infrastructure, built for the Andela x Open Society Foundations
 *"Information You Can Trust"* Peace Tech Innovation Challenge.
 
 Track: **Safety, Reporting & Protection** (the architecture spans all three challenge tracks)
@@ -79,15 +80,17 @@ map colours each case by how far along the loop it is.
 
 ## What's real, what's simulated, what's roadmap
 
-**Real in this build:** intake (text, voice, WhatsApp webhook), Pidgin-aware classification, place
+**Real in this build:** intake (text and voice on the web; the WhatsApp webhook is implemented and tested
+with signed test payloads, but not yet tested live with Meta), Pidgin-aware classification, place
 matching, the corroboration and verification rules, responsibility assignment with SLAs, the full
 status schema, the independent-verification check, the Trust Receipt, and the map and feed.
 
 **Simulated for the demo (and labelled as such in the app):**
 - Responders are scripted. Acceptance, "in progress" and "claimed resolved" are triggered by demo
   controls, and the 22-minute acknowledgement time is a simulated responder delay.
-- The Mile 12 and Ijegun incidents are single reports routed by a scripted demo rule so they can show
-  their routing path. They are marked "Scripted demo routing" in their receipts.
+- Reports about Mile 12 market and Ijegun are routed by a scripted demo rule so the two shallow paths can
+  show their routing. They are marked "Scripted demo routing" in their receipts. Any other report follows
+  the normal rules and stays at Signal until a second independent report corroborates it.
 - The independent confirmation is submitted through the demo panel or API. Routing a confirmation
   received over WhatsApp is roadmap.
 - Sample cases created by the seed button are marked "Seeded sample".
@@ -145,6 +148,30 @@ The moat isn't the app — any current LLM can classify "there's a broken water 
 The moat is the response network, the institutional relationships, and the verified case history that
 accumulate over time. Relay's job is to be the infrastructure underneath Africa's civic-tech layer, not
 one more destination app competing with the ones that already exist.
+
+## Open API and interoperability
+
+Relay is meant to sit underneath civic-reporting tools, not beside them: build the response infrastructure once, and let
+every organisation plug into it. The API is documented in [`docs/openapi.yaml`](./docs/openapi.yaml) (OpenAPI 3.1), and the
+full partner framework (sources, responders, access classes, how it would be run) is in
+[`docs/PARTNER_FRAMEWORK.md`](./docs/PARTNER_FRAMEWORK.md). Developer documentation with an endpoint list, live example and a
+partner-key preview is at `/developers.html`. To see several sources feed one case, open `/partner-demo.html`
+(a page that stands in for other applications) next to the dashboard.
+
+- **Built:** open report intake (`POST /api/reports` with an optional `source` naming the sending application, voice notes,
+  the WhatsApp webhook); a new report is matched to an existing open case at the same place and type, so duplicates join
+  instead of multiplying and every source is listed on the case; and a public read API
+  (`GET /api/cases`, `GET /api/cases/{id}`) showing status, responsible actor, SLA, history and independent verification,
+  with phone numbers and emails masked, reporter identifiers hashed and coordinates rounded.
+- **Roadmap, not built:** partner API keys with source attribution; verified regulator and NGO accounts with role-based
+  views; confidentiality classes (Public, Restricted, Protected) so that sensitive cases are visible only to designated
+  organisations; search and "has this already been reported?" lookups; and notifications when a case changes.
+
+```bash
+curl -X POST http://localhost:3000/api/reports -H "Content-Type: application/json" \
+  -d '{"text":"The borehole at Ijegun primary school has been broken for two weeks."}'
+curl http://localhost:3000/api/cases
+```
 
 ## Tech stack
 
@@ -208,7 +235,8 @@ the build, not originate the idea.
 (Google's asynchronous coding agent). Each piece was a GitHub issue written against
 [`BUILD_BRIEF.md`](./BUILD_BRIEF.md), and each came back as a pull request that was reviewed and tested
 by hand before merging. The issues and pull requests in this repository are the record. **Claude** was
-used as an engineering partner for planning the task breakdown, reviewing pull requests, and debugging.
+used as an engineering partner for planning the task breakdown, reviewing pull requests, debugging, and
+writing the offline test suites and three tested patch scripts that applied late fixes. Each of Jules's pull requests was reviewed before it was merged.
 
 **What the human work looked like:** directing the scope, catching what the agent missed, and testing
 against real behaviour. Examples from this build: the originally planned Groq model was retired mid-build
@@ -226,6 +254,9 @@ app itself does when it classifies a report or transcribes a voice note.
 - Whisper's Pidgin transcripts are imperfect.
 - The confidence score is a transparent heuristic, not a validated model.
 - The free-tier model limits how many reports can be processed per minute.
+- WhatsApp intake is tested offline with signed test payloads; it has not been tested live with Meta.
+- Web reports are anonymous, so independence between them cannot be proven; identical resubmissions are ignored.
+- Whisper's Pidgin transcripts are imperfect and can misread short words (for example "don" heard as "don't"); the transcript is kept on the case so a person can check it.
 - README additions (by hand, on GitHub)
 - Anonymous web reports cannot prove independence; WhatsApp reports are distinguished by hashed sender. Identical resubmissions are not counted twice.
 - Whisper's Pidgin transcripts are imperfect and can misread short function words (for example 'don' as 'don't'). The transcript is stored on the case so a human can check it.
@@ -233,7 +264,7 @@ app itself does when it classifies a report or transcribes a voice note.
 ## Demo
 
 - **Video (mp4/mov/webm/avi):** [link to demo video]
-- **Hosted app:** [link to hosted URL]
+- **Running it:** locally only; see "Running it locally" above. No hosted instance is needed to evaluate the project.
 - **Pitch deck (PDF):** [link to pitch deck]
 - **Written summary:** [`SUMMARY.md`](./SUMMARY.md) — track, information sources, approach to trust and
   accuracy, and how AI tools were used
