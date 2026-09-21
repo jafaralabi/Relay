@@ -115,7 +115,7 @@
   <script>
     const origin = location.origin;
     document.getElementById('base').textContent = origin;
-    document.getElementById('embedSnippet').textContent = '<script src="' + origin + '/embed.js" data-source="YourAppName"></script>';
+    document.getElementById('embedSnippet').textContent = '<script src="' + origin + '/embed.js" data-source="YourAppName"><\/script>';
     const snippets = {
       curl: `curl -X POST ${origin}/api/reports \\\n  -H "Content-Type: application/json" \\\n  -d '{"text":"The borehole at Ijegun primary school has been broken for two weeks.","source":"YourAppName"}'\n\ncurl ${origin}/api/cases`,
       ps: `$body = @{ text = "The borehole at Ijegun primary school has been broken for two weeks."; source = "YourAppName" } | ConvertTo-Json\nInvoke-RestMethod -Method Post -Uri "${origin}/api/reports" -ContentType "application/json" -Body $body\n\n(Invoke-RestMethod -Uri "${origin}/api/cases").cases | Select-Object id, status, type, location_text, sources`,

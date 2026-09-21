@@ -43,7 +43,9 @@ async function call(method, p, headers = {}) { const r = await fetch(BASE + p, {
   check('the partner-website demo page embeds the widget with a source name', r.status === 200 && t.includes('/embed.js') && t.includes('data-source="SunBright Solar"'));
   const passed = results.filter(Boolean).length;
   console.log(`\n${passed}/${results.length} checks passed`);
-  server.close();
   for (const suffix of ['', '-wal', '-shm']) { try { fs.unlinkSync(dbFile + suffix); } catch (_) { /* ignore */ } }
-  process.exit(passed === results.length ? 0 : 1);
+  // Let the process end by itself (calling process.exit() right after fetch calls can trigger a libuv assertion on Windows).
+  process.exitCode = passed === results.length ? 0 : 1;
+  if (server.closeAllConnections) server.closeAllConnections();
+  server.close();
 })().catch(e => { console.error('TEST ERROR', e); process.exit(2); });
