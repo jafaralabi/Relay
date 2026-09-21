@@ -30,6 +30,16 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '1mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 
+// Hosted read-only demo (HOSTED_READONLY=true): keep the sample cases visible but accept no new reports, which protects
+// the shared model quota and the data. Demo controls stay key protected.
+app.use((req, res, next) => {
+  if (process.env.HOSTED_READONLY === 'true' && req.method === 'POST' &&
+      (req.path === '/api/reports' || req.path === '/api/reports/voice' || req.path === '/webhook')) {
+    return res.status(403).json({ success: false, error: 'This hosted demo is read-only: it shows sample cases. Run Relay locally to submit reports (see the README).' });
+  }
+  next();
+});
+
 // Public endpoints can be called from other websites (the embeddable widget and partner apps). Demo controls and the
 // WhatsApp webhook are never opened to other origins. Set CORS_ORIGINS to one origin to restrict access.
 const CORS_PUBLIC_PATHS = [/^\/api\/reports$/, /^\/api\/cases(\/[A-Za-z0-9-]+)?$/, /^\/api\/health$/];
