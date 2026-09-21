@@ -1,0 +1,6 @@
+docs/demo/*.webm
+docs/demo/tmp
+data/*.db
+data/*.db-wal
+data/*.db-shm
+.env

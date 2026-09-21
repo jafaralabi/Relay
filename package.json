@@ -13,6 +13,9 @@
     "url": "git+https://github.com/Bn-Zubair/Relay.git"
   },
   "license": "MIT",
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "dotenv": "^18.0.0",

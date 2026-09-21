@@ -29,6 +29,16 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: '1mb', verify: (req, res, buf) => { req.rawBody = buf; } }));
+
+// Hosted read-only demo (HOSTED_READONLY=true): keep the sample cases visible but accept no new reports, which protects
+// the shared model quota and the data. Demo controls stay key protected.
+app.use((req, res, next) => {
+  if (process.env.HOSTED_READONLY === 'true' && req.method === 'POST' &&
+      (req.path === '/api/reports' || req.path === '/api/reports/voice' || req.path === '/webhook')) {
+    return res.status(403).json({ success: false, error: 'This hosted demo is read-only: it shows sample cases. Run Relay locally to submit reports (see the README).' });
+  }
+  next();
+});
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(express.static(require('path').join(__dirname, '..', 'public')));
 
